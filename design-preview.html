@@ -1,0 +1,177 @@
+<!doctype html><html><head><meta charset="utf8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--haze:#ECECF9;--mist:#FFF;--ink:#1A1B3A;--onInk:#EDEDFB;--text:#1A1B3A;--muted:#6E6E93;--iris:#4E47E5;--gold:#F2A93B;--onGold:#2A1B02;--sage:#2FA579;--line:#DEDEF2}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#d9d9ea;font-family:Inter,sans-serif;padding:32px;display:flex;gap:28px;flex-wrap:wrap;justify-content:center}
+.phone{width:320px;height:680px;background:var(--haze);border-radius:36px;overflow:hidden;box-shadow:0 24px 60px rgba(26,27,58,.25);display:flex;flex-direction:column;position:relative}
+.disp{font-family:'Space Grotesk';font-weight:700;letter-spacing:-.5px}
+.mono{font-family:'Space Mono'}
+.label{font-family:Inter;font-weight:600;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
+/* onboarding */
+.ob{padding:22px 24px;text-align:center}
+.orbit{margin:10px auto 6px}
+.ob h1{font-size:30px;margin:6px 0 10px;letter-spacing:-.5px}
+.ob p{color:var(--muted);font-size:15px;line-height:1.5;margin-bottom:22px}
+.card{background:var(--mist);border:1px solid var(--line);border-radius:20px;padding:16px;text-align:left;box-shadow:0 6px 16px rgba(26,27,58,.08)}
+.amt{display:flex;align-items:center;border:1px solid var(--line);border-radius:14px;padding:0 14px;background:var(--haze)}
+.amt span{font-family:'Space Mono';font-weight:700;color:var(--muted);font-size:20px;margin-right:6px}
+.amt input{border:0;background:transparent;font-family:'Space Mono';font-weight:700;font-size:20px;padding:14px 0;width:100%;color:var(--text)}
+.grid{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.chip{width:42px;height:40px;border:1px solid var(--line);border-radius:10px;background:var(--haze);display:flex;align-items:center;justify-content:center;font-family:'Space Mono';font-size:13px}
+.chip.on{background:var(--gold);border-color:var(--gold);color:var(--onGold);font-weight:700}
+.btn{height:52px;border-radius:14px;background:var(--gold);color:var(--onGold);font-family:Inter;font-weight:600;display:flex;align-items:center;justify-content:center;margin-top:16px}
+.skip{color:var(--muted);font-weight:600;font-size:14px;margin-top:12px}
+/* calendar */
+.hdr{background:var(--ink);border-radius:0 0 28px 28px;padding:14px 0 14px;box-shadow:0 6px 16px rgba(26,27,58,.15)}
+.runway{padding:6px 20px 12px}
+.runrow{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.runrow b{font-family:'Space Mono';font-weight:700;color:var(--onInk);font-size:15px}
+.runrow i{font-family:'Space Mono';color:rgba(237,237,251,.6);font-size:13px;font-style:normal}
+.track{height:8px;border-radius:8px;background:rgba(255,255,255,.16);position:relative}
+.fill{position:absolute;left:0;top:0;bottom:0;width:62%;background:var(--gold);border-radius:8px}
+.knob{position:absolute;left:62%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--gold);border:2px solid #FFF7EA}
+.cal{padding:8px 14px 6px}
+.caltop{display:flex;justify-content:space-between;align-items:center;padding:4px 6px 10px}
+.caltop .m{font-family:'Space Grotesk';font-weight:700;color:var(--onInk);font-size:20px}
+.caltop .a{color:var(--gold);font-size:18px}
+.dow{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px}
+.dow span{text-align:center;font-family:Inter;font-weight:600;font-size:11px;color:rgba(237,237,251,.55)}
+.days{display:grid;grid-template-columns:repeat(7,1fr);row-gap:2px}
+.d{height:44px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+.d .n{width:34px;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-family:'Space Mono';font-size:13px;color:var(--onInk)}
+.d.out .n{color:rgba(237,237,251,.38)}
+.d.sel .n{border:2px solid var(--iris);background:rgba(78,71,229,.18)}
+.d.pay .n{background:var(--gold);color:var(--onGold);font-weight:700}
+.dots{display:flex;gap:3px;height:8px;margin-top:3px}
+.dot{width:5px;height:5px;border-radius:3px}
+.dateline{font-family:'Space Grotesk';font-weight:700;font-size:22px;padding:16px 20px 10px;letter-spacing:-.3px}
+.evt{background:var(--mist);border:1px solid var(--line);border-radius:20px;padding:14px;margin:0 20px 10px;display:flex;gap:12px;box-shadow:0 6px 16px rgba(26,27,58,.06)}
+.rule{width:4px;border-radius:2px;background:var(--iris)}
+.evt .t{font-family:'Space Grotesk';font-weight:600;font-size:17px}
+.evt .tm{font-family:'Space Mono';font-size:13px;color:var(--muted);margin-top:3px}
+.payc{background:var(--gold);border-radius:20px;padding:14px;margin:0 20px 12px;display:flex;gap:12px;align-items:center}
+.coin{width:38px;height:38px;border-radius:19px;border:2px solid rgba(42,27,2,.35);display:flex;align-items:center;justify-content:center;font-family:'Space Mono';font-weight:700;color:var(--onGold)}
+.payc .t{font-family:'Space Grotesk';font-weight:600;font-size:17px;color:var(--onGold)}
+.payc .s{font-family:'Space Mono';font-size:13px;color:rgba(42,27,2,.7)}
+.fab{position:absolute;right:20px;bottom:76px;width:58px;height:58px;border-radius:29px;background:var(--gold);color:var(--onGold);font-family:'Space Grotesk';font-weight:700;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 20px rgba(26,27,58,.25)}
+.tabbar{margin-top:auto;height:60px;background:var(--mist);border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-around}
+.tabbar div{width:24px;height:24px;border-radius:6px;border:2px solid var(--muted)}
+.tabbar div.active{border-color:var(--iris)}
+/* settings */
+.st{padding:8px 20px}
+.st h1{font-size:30px;margin:8px 0 16px}
+.grp{background:var(--mist);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 6px 16px rgba(26,27,58,.08)}
+.opt{display:flex;gap:14px;align-items:center;padding:15px 16px}
+.opt+.opt{border-top:1px solid var(--line)}
+.radio{width:20px;height:20px;border-radius:10px;border:2px solid var(--muted);display:flex;align-items:center;justify-content:center}
+.radio.on{border-color:var(--iris)}
+.radio.on::after{content:"";width:10px;height:10px;border-radius:5px;background:var(--iris)}
+.opt .l{font-family:Inter;font-weight:600;font-size:15px}
+.opt .h{font-family:Inter;font-size:13px;color:var(--muted)}
+.foot{font-family:'Space Mono';font-size:12px;color:var(--muted);margin:12px 0 0 2px}
+.sum{background:var(--ink);border-radius:20px;padding:18px;display:flex;gap:16px;align-items:center;margin-bottom:12px;box-shadow:0 6px 16px rgba(26,27,58,.12)}
+.ring{width:68px;height:68px;border-radius:50%;background:conic-gradient(var(--gold) 62%,rgba(237,237,251,.18) 0);display:flex;align-items:center;justify-content:center;position:relative}
+.ring::before{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--ink)}
+.ring span{position:relative;font-family:'Space Mono';font-weight:700;color:var(--onInk);font-size:16px}
+.sum .amt2{font-family:'Space Mono';font-weight:700;color:var(--onInk);font-size:22px}
+.sum .pd{font-family:'Space Mono';font-size:13px;color:rgba(237,237,251,.65)}
+</style></head><body>
+
+<!-- ONBOARDING -->
+<div class="phone"><div class="ob">
+<svg class="orbit" width="220" height="186" viewBox="0 0 260 220">
+<circle cx="130" cy="118" r="40" stroke="#DEDEF2" stroke-width="1.5" fill="none"/>
+<circle cx="130" cy="118" r="66" stroke="#4E47E5" stroke-width="1.5" fill="none" opacity=".5"/>
+<circle cx="130" cy="118" r="92" stroke="#DEDEF2" stroke-width="1.5" fill="none"/>
+<path d="M64 118 A66 66 0 0 1 183.4 79.2" stroke="#F2A93B" stroke-width="3" stroke-linecap="round" fill="none"/>
+<circle cx="183.4" cy="79.2" r="11" fill="#F2A93B"/><circle cx="183.4" cy="79.2" r="11" stroke="#FFF7EA" stroke-width="2" fill="none"/>
+<circle cx="64" cy="118" r="4" fill="#4E47E5"/>
+<g opacity=".55"><line x1="44" y1="40" x2="44" y2="56" stroke="#4E47E5" stroke-width="2" stroke-linecap="round"/><line x1="36" y1="48" x2="52" y2="48" stroke="#4E47E5" stroke-width="2" stroke-linecap="round"/><circle cx="220" cy="60" r="6" stroke="#F2A93B" stroke-width="2" fill="none"/><polygon points="214,168 226,168 220,156" fill="#2FA579"/><circle cx="40" cy="182" r="3" fill="#F2A93B"/></g>
+</svg>
+<h1 class="disp" style="margin-top:14px">Set your pay rhythm</h1>
+<p>Tell the app the day you're paid and it maps the days between now and then. This is optional — skip it and add it later in Settings.</p>
+<div class="card">
+<div class="label" style="margin-bottom:8px">Salary amount</div>
+<div class="amt"><span>$</span><input value="3,000"></div>
+<div class="label" style="margin:22px 0 4px">Payday</div>
+<div class="mono" style="font-size:13px;color:var(--muted);margin-bottom:8px">the 15th of each month</div>
+<div class="grid">
+<div class="chip">13</div><div class="chip">14</div><div class="chip on">15</div><div class="chip">16</div><div class="chip">17</div><div class="chip">18</div><div class="chip">19</div>
+</div>
+</div>
+<div class="btn">Continue</div>
+<div class="skip">Skip for now</div>
+</div></div>
+
+<!-- CALENDAR -->
+<div class="phone">
+<div class="hdr">
+<div class="runway"><div class="runrow"><b>12 days to payday</b><i>Sep 15</i></div><div class="track"><div class="fill"></div><div class="knob"></div></div></div>
+<div class="cal">
+<div class="caltop"><span class="a">‹</span><span class="m">September</span><span class="a">›</span></div>
+<div class="dow"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+<div class="days">
+<div class="d out"><div class="n">31</div><div class="dots"></div></div>
+<div class="d"><div class="n">1</div><div class="dots"></div></div>
+<div class="d"><div class="n">2</div><div class="dots"><div class="dot" style="background:#2B8DBE"></div></div></div>
+<div class="d"><div class="n">3</div><div class="dots"></div></div>
+<div class="d sel"><div class="n">4</div><div class="dots"><div class="dot" style="background:#4E47E5"></div><div class="dot" style="background:#2FA579"></div></div></div>
+<div class="d"><div class="n">5</div><div class="dots"></div></div>
+<div class="d"><div class="n">6</div><div class="dots"></div></div>
+<div class="d"><div class="n">7</div><div class="dots"></div></div>
+<div class="d"><div class="n">8</div><div class="dots"><div class="dot" style="background:#E5484D"></div></div></div>
+<div class="d"><div class="n">9</div><div class="dots"></div></div>
+<div class="d"><div class="n">10</div><div class="dots"></div></div>
+<div class="d"><div class="n">11</div><div class="dots"></div></div>
+<div class="d"><div class="n">12</div><div class="dots"></div></div>
+<div class="d"><div class="n">13</div><div class="dots"></div></div>
+<div class="d"><div class="n">14</div><div class="dots"></div></div>
+<div class="d pay"><div class="n">15</div><div class="dots"></div></div>
+<div class="d"><div class="n">16</div><div class="dots"></div></div>
+<div class="d"><div class="n">17</div><div class="dots"><div class="dot" style="background:#8E5BE8"></div></div></div>
+<div class="d"><div class="n">18</div><div class="dots"></div></div>
+<div class="d"><div class="n">19</div><div class="dots"></div></div>
+<div class="d"><div class="n">20</div><div class="dots"></div></div>
+<div class="d"><div class="n">21</div><div class="dots"></div></div>
+<div class="d"><div class="n">22</div><div class="dots"></div></div>
+<div class="d"><div class="n">23</div><div class="dots"></div></div>
+<div class="d"><div class="n">24</div><div class="dots"></div></div>
+<div class="d"><div class="n">25</div><div class="dots"></div></div>
+<div class="d"><div class="n">26</div><div class="dots"></div></div>
+<div class="d"><div class="n">27</div><div class="dots"></div></div>
+<div class="d"><div class="n">28</div><div class="dots"></div></div>
+</div></div></div>
+<div class="dateline">Thursday, Sep 4</div>
+<div class="evt"><div class="rule"></div><div><div class="t">Team standup</div><div class="tm">09:00  –  09:30</div></div></div>
+<div class="evt"><div class="rule" style="background:#2FA579"></div><div><div class="t">Dentist</div><div class="tm">14:00</div></div></div>
+<div class="fab">+</div>
+<div class="tabbar"><div class="active"></div><div></div><div></div></div>
+</div>
+
+<!-- SETTINGS -->
+<div class="phone">
+<div class="st"><h1 class="disp">Settings</h1>
+<div class="label" style="margin-bottom:10px">Appearance</div>
+<div class="grp">
+<div class="opt"><div class="radio on"></div><div><div class="l">System</div><div class="h">Follow the phone setting</div></div></div>
+<div class="opt"><div class="radio"></div><div><div class="l">Light</div><div class="h">Always light</div></div></div>
+<div class="opt"><div class="radio"></div><div><div class="l">Dark</div><div class="h">Always dark</div></div></div>
+</div>
+<div class="foot">showing light theme</div>
+<div class="label" style="margin:30px 0 10px">Pay rhythm</div>
+<div class="sum"><div class="ring"><span>12d</span></div><div><div class="amt2">$3,000</div><div class="pd">paid on the 15th</div></div></div>
+<div class="card">
+<div class="label" style="margin-bottom:8px">Salary amount</div>
+<div class="amt"><span>$</span><input value="3,000"></div>
+<div class="label" style="margin:22px 0 4px">Payday</div>
+<div class="mono" style="font-size:13px;color:var(--muted);margin-bottom:8px">the 15th of each month</div>
+<div class="grid"><div class="chip">13</div><div class="chip">14</div><div class="chip on">15</div><div class="chip">16</div><div class="chip">17</div></div>
+<div class="btn">Save pay rhythm</div>
+</div>
+</div>
+<div class="tabbar"><div></div><div></div><div class="active"></div></div>
+</div>
+
+</body></html>

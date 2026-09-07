@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "planner-app",
+    "slug": "planner-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.damien.plannerapp"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.damien.plannerapp",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "@react-native-community/datetimepicker",
+      "expo-font",
+      "expo-splash-screen",
+      "expo-sharing",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use the camera to scan receipts. Receipts are read on this device and never uploaded."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to use your photos for your profile picture and receipts."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "dafff614-5dbf-46f7-80a9-a83871234724"
+      }
+    },
+    "owner": "damienchng",
+    "updates": {
+      "url": "https://u.expo.dev/dafff614-5dbf-46f7-80a9-a83871234724"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
+  }
+}
