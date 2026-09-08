@@ -38,17 +38,20 @@ import BankImportScreen from './src/screens/BankImportScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import EventEditorScreen from './src/screens/EventEditorScreen';
-import NotesScreen from './src/screens/NotesScreen';
-import NoteEditorScreen from './src/screens/NoteEditorScreen';
 import AccountsScreen from './src/screens/AccountsScreen';
+import AccountEditorScreen from './src/screens/AccountEditorScreen';
 import CategoryBreakdownScreen from './src/screens/CategoryBreakdownScreen';
 import CurrencyScreen from './src/screens/CurrencyScreen';
 import HomeCardsScreen from './src/screens/HomeCardsScreen';
 import BudgetsScreen from './src/screens/BudgetsScreen';
+import GoalEditorScreen from './src/screens/GoalEditorScreen';
 import GoalsScreen from './src/screens/GoalsScreen';
 import PeopleScreen from './src/screens/PeopleScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import AppPreferencesScreen from './src/screens/AppPreferencesScreen';
+import MoneySettingsScreen from './src/screens/MoneySettingsScreen';
+import DataScreen from './src/screens/DataScreen';
 import SharedExpenseEditorScreen from './src/screens/SharedExpenseEditorScreen';
 import ScanReceiptScreen from './src/screens/ScanReceiptScreen';
 import SharedScreen from './src/screens/SharedScreen';
@@ -66,7 +69,6 @@ import { font, type Theme } from './src/theme';
 import type {
   HomeStackParams,
   CalendarStackParams,
-  NotesStackParams,
   SettingsStackParams,
   SharedStackParams,
   RootTabParams,
@@ -77,7 +79,6 @@ SplashScreen.preventAutoHideAsync();
 const Tab = createBottomTabNavigator<RootTabParams>();
 const HomeStack = createNativeStackNavigator<HomeStackParams>();
 const CalendarStack = createNativeStackNavigator<CalendarStackParams>();
-const NotesStack = createNativeStackNavigator<NotesStackParams>();
 const SettingsStack = createNativeStackNavigator<SettingsStackParams>();
 const SharedStack = createNativeStackNavigator<SharedStackParams>();
 
@@ -163,7 +164,16 @@ function HomeStackScreen() {
         component={AccountsScreen}
         options={{ title: 'Accounts & net worth' }}
       />
+      <HomeStack.Screen name="AccountEditor" component={AccountEditorScreen} />
       <HomeStack.Screen name="Budgets" component={BudgetsScreen} options={{ title: 'Budgets' }} />
+      <HomeStack.Screen name="Goals" component={GoalsScreen} options={{ title: 'Goals' }} />
+      <HomeStack.Screen name="GoalEditor" component={GoalEditorScreen} />
+      <HomeStack.Screen
+        name="RecurringExpenses"
+        component={RecurringExpensesScreen}
+        options={{ title: 'Recurring expenses' }}
+      />
+      <HomeStack.Screen name="RecurringExpenseEditor" component={RecurringExpenseEditorScreen} />
       <HomeStack.Screen
         name="HomeCards"
         component={HomeCardsScreen}
@@ -184,20 +194,6 @@ function CalendarStackScreen() {
       />
       <CalendarStack.Screen name="EventEditor" component={EventEditorScreen} />
     </CalendarStack.Navigator>
-  );
-}
-
-function NotesStackScreen() {
-  const { colors } = useTheme();
-  return (
-    <NotesStack.Navigator screenOptions={stackHeaderOptions(colors)}>
-      <NotesStack.Screen
-        name="NotesHome"
-        component={NotesScreen}
-        options={{ headerShown: false }}
-      />
-      <NotesStack.Screen name="NoteEditor" component={NoteEditorScreen} />
-    </NotesStack.Navigator>
   );
 }
 
@@ -239,6 +235,21 @@ function SettingsStackScreen() {
         options={{ title: 'Profile' }}
       />
       <SettingsStack.Screen
+        name="AppPreferences"
+        component={AppPreferencesScreen}
+        options={{ title: 'App preferences' }}
+      />
+      <SettingsStack.Screen
+        name="MoneySettings"
+        component={MoneySettingsScreen}
+        options={{ title: 'Finances' }}
+      />
+      <SettingsStack.Screen
+        name="DataSettings"
+        component={DataScreen}
+        options={{ title: 'Data' }}
+      />
+      <SettingsStack.Screen
         name="PayRhythm"
         component={PayRhythmScreen}
         options={{ title: 'Pay rhythm' }}
@@ -248,6 +259,7 @@ function SettingsStackScreen() {
         component={AccountsScreen}
         options={{ title: 'Accounts & net worth' }}
       />
+      <SettingsStack.Screen name="AccountEditor" component={AccountEditorScreen} />
       <SettingsStack.Screen
         name="HomeCards"
         component={HomeCardsScreen}
@@ -268,6 +280,7 @@ function SettingsStackScreen() {
         component={GoalsScreen}
         options={{ title: 'Goals' }}
       />
+      <SettingsStack.Screen name="GoalEditor" component={GoalEditorScreen} />
       <SettingsStack.Screen
         name="RecurringExpenses"
         component={RecurringExpensesScreen}
@@ -352,17 +365,14 @@ function RootNavigation() {
             }}
           />
           <Tab.Screen
-            name="Notes"
-            component={NotesStackScreen}
-            options={{ tabBarIcon: (p) => <TabBarIcon name="notes" {...p} /> }}
-            listeners={{
-              tabPress: () => resetTabToRoot(navigationRef, 'Notes'),
-            }}
-          />
-          <Tab.Screen
             name="Shared"
             component={SharedStackScreen}
-            options={{ tabBarIcon: (p) => <TabBarIcon name="shared" {...p} /> }}
+            options={{
+              // The route keeps its short internal name; only the label shown
+              // under the icon changes.
+              tabBarLabel: 'Split Tracker',
+              tabBarIcon: (p) => <TabBarIcon name="shared" {...p} />,
+            }}
             listeners={{
               tabPress: () => resetTabToRoot(navigationRef, 'Shared'),
             }}
@@ -370,9 +380,12 @@ function RootNavigation() {
           <Tab.Screen
             name="Settings"
             component={SettingsStackScreen}
-            options={{ tabBarIcon: (p) => <TabBarIcon name="settings" {...p} /> }}
-            listeners={{
-              tabPress: () => resetTabToRoot(navigationRef, 'Settings'),
+            options={{
+              // Reached from the profile icon on Home instead of a tab of its
+              // own. The route stays — everything that links into Settings
+              // navigates by this name — it just has no button in the bar.
+              tabBarButton: () => null,
+              tabBarItemStyle: { display: 'none' },
             }}
           />
         </Tab.Navigator>
