@@ -1,4 +1,4 @@
-# planner-app — visual design
+# My Finance Pal — visual design
 
 ## Subject
 

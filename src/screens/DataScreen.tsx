@@ -110,7 +110,7 @@ export default function DataScreen({ navigation }: Props) {
       <ConfirmDialog
         visible={importConfirmVisible}
         title="Import data?"
-        message="Pick a planner-app backup file. What it contains will be merged into what's already on this device — items with matching IDs are overwritten."
+        message="Pick a My Finance Pal backup file. What it contains will be merged into what's already on this device — items with matching IDs are overwritten."
         confirmLabel="Choose file"
         cancelLabel="Cancel"
         onConfirm={onImportConfirmed}

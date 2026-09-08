@@ -6,6 +6,7 @@ import AppText from '../components/AppText';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PlatformDateTimePicker from '../components/PlatformDateTimePicker';
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard';
+import { useSaveAndClose } from '../components/useSaveAndClose';
 import { deleteGoal, getGoal, uid, upsertGoal, type GoalRow } from '../db';
 import { prettyDate, todayKey } from '../dateUtils';
 import { goalStatus } from '../goals';
@@ -94,11 +95,12 @@ export default function GoalEditorScreen({ navigation, route }: Props) {
     });
   };
 
-  const save = async () => {
-    await persist();
-    leaving.current = true;
-    navigation.goBack();
-  };
+  const { save, saveFailedDialog } = useSaveAndClose({
+    persist,
+    leaving,
+    goBack: () => navigation.goBack(),
+    what: 'this goal',
+  });
 
   if (!loaded) return <View style={styles.container} />;
 
@@ -111,6 +113,7 @@ export default function GoalEditorScreen({ navigation, route }: Props) {
         title="Save this goal?"
         message="You've filled in a goal without saving it."
       />
+      {saveFailedDialog}
 
       <AppText variant="label" muted style={styles.fieldLabel}>
         What for

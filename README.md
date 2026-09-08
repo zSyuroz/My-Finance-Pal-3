@@ -1,4 +1,4 @@
-# planner-app
+# My Finance Pal
 
 A mobile app with four tabs (**Home** is the one you land on):
 

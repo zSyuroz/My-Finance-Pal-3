@@ -1,5 +1,5 @@
 {
-  "name": "planner-app",
+  "name": "my-finance-pal",
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {

@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AppText from '../components/AppText';
 import ConfirmDialog from '../components/ConfirmDialog';
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard';
+import { useSaveAndClose } from '../components/useSaveAndClose';
 import { todayKey } from '../dateUtils';
 import {
   deleteAccount,
@@ -123,11 +124,12 @@ export default function AccountEditorScreen({ navigation, route }: Props) {
     if (spendFrom) await setEverydayAccount(accountId);
   };
 
-  const save = async () => {
-    await persist();
-    leaving.current = true;
-    navigation.goBack();
-  };
+  const { save, saveFailedDialog } = useSaveAndClose({
+    persist,
+    leaving,
+    goBack: () => navigation.goBack(),
+    what: 'this account',
+  });
 
   if (!loaded) return <View style={styles.container} />;
 
@@ -140,6 +142,7 @@ export default function AccountEditorScreen({ navigation, route }: Props) {
         title="Save this account?"
         message="You've filled in an account without saving it."
       />
+      {saveFailedDialog}
 
       <AppText variant="label" muted style={styles.fieldLabel}>
         Name

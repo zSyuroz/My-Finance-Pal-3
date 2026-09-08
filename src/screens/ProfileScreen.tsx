@@ -4,6 +4,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import AppText from '../components/AppText';
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard';
+import { useSaveAndClose } from '../components/useSaveAndClose';
 import Avatar from '../components/Avatar';
 import AvatarCropper from '../components/AvatarCropper';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -57,11 +58,12 @@ export default function ProfileScreen({ navigation }: Props) {
     setInitial({ name, avatar });
   };
 
-  const save = async () => {
-    await persist();
-    leaving.current = true;
-    navigation.goBack();
-  };
+  const { save, saveFailedDialog } = useSaveAndClose({
+    persist,
+    leaving,
+    goBack: () => navigation.goBack(),
+    what: 'your profile',
+  });
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -86,6 +88,7 @@ export default function ProfileScreen({ navigation }: Props) {
         title="Save your profile?"
         message="You've changed your name or picture without saving."
       />
+      {saveFailedDialog}
 
       <Pressable style={styles.avatarWrap} onPress={choosePicture}>
         <Avatar name={name} uri={avatar} size={124} />

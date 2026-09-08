@@ -15,7 +15,7 @@ import appConfig from '../app.json';
 /** Where feedback goes. One line to change if the address ever does. */
 export const FEEDBACK_EMAIL = 'chngdamien@gmail.com';
 
-const APP_NAME = 'Finance Pal';
+const APP_NAME = 'My Finance Pal';
 /** Read from app.json so the number on screen cannot drift from the build. */
 export const APP_VERSION = appConfig.expo.version;
 const VERSION = APP_VERSION;

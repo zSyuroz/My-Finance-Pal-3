@@ -14,6 +14,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AppText from '../components/AppText';
 import CycleRing from '../components/CycleRing';
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard';
+import { useSaveAndClose } from '../components/useSaveAndClose';
 import DayOfMonthGrid from '../components/DayOfMonthGrid';
 import PaydayFields from '../components/PaydayFields';
 import {
@@ -79,11 +80,12 @@ export default function PayRhythmScreen({ navigation }: Props) {
     }
   };
 
-  const save = async () => {
-    await persist();
-    leaving.current = true;
-    navigation.goBack();
-  };
+  const { save, saveFailedDialog } = useSaveAndClose({
+    persist,
+    leaving,
+    goBack: () => navigation.goBack(),
+    what: 'your pay rhythm',
+  });
 
   // What is on screen against what is stored. The amount is compared as text
   // so "2222" and "2222.00" do not read as a change.
@@ -106,6 +108,7 @@ export default function PayRhythmScreen({ navigation }: Props) {
         title="Save your pay rhythm?"
         message="You've changed your salary or payday without saving it."
       />
+      {saveFailedDialog}
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {savedAmount != null || savedDay != null ? (

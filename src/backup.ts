@@ -49,6 +49,9 @@ import {
 } from './db';
 import { syncScheduledNotifications } from './reminders';
 
+// Not a display name: it is stamped into every export and checked on the way
+// back in, so it has to keep matching the backups people already hold. The app
+// was called planner-app when the format was set.
 const APP_ID = 'planner-app';
 // 2 added accounts, budgets, goals and the net-worth history. Version 1
 // files still import — every table is optional on the way back in.
@@ -194,7 +197,7 @@ function parseEnvelope(jsonText: string): BackupEnvelope {
   }
   const env = parsed as Partial<BackupEnvelope> | null;
   if (!env || env.app !== APP_ID || !env.data) {
-    throw new Error('That file is not a planner-app backup.');
+    throw new Error('That file is not a My Finance Pal backup.');
   }
   return env as BackupEnvelope;
 }

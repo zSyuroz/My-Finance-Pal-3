@@ -82,6 +82,16 @@ import type { HomeStackParams } from '../navigation';
 
 type Props = NativeStackScreenProps<HomeStackParams, 'HomeMain'>;
 
+/**
+ * The card that was showing when Home was last left.
+ *
+ * Module scope rather than state, because the point is to survive the screen
+ * being torn down and rebuilt — which is exactly what happens when you tap a
+ * card and come back. It resets when the app does, so a fresh launch still
+ * opens on whichever card the user put first.
+ */
+let lastCardShown = 0;
+
 // "Recent" only shows the last 2 weeks — anything older is still saved
 // forever, just tucked away in History instead of cluttering the dashboard.
 // The window itself lives in ../transactions so the importer can reference it.
@@ -114,6 +124,10 @@ export default function HomeScreen({ navigation }: Props) {
     splits: SharedSplitRow[];
     payments: PaymentRow[];
   }>({ expenses: [], splits: [], payments: [] });
+  // Bumped on every focus so the ring strip can put itself back where the
+  // user left it — coming back to Home is not a rebuild, but the browser
+  // still drops the scroll offset of a screen it had hidden.
+  const [focusTick, setFocusTick] = useState(0);
   const [worthTrend, setWorthTrend] = useState<Trend>({
     change: null,
     points: 0,
@@ -203,6 +217,7 @@ export default function HomeScreen({ navigation }: Props) {
   useFocusEffect(
     useCallback(() => {
       refresh();
+      setFocusTick((n) => n + 1);
     }, [refresh])
   );
 
@@ -502,7 +517,13 @@ export default function HomeScreen({ navigation }: Props) {
                 </Pressable>
               </View>
 
-              <Pager>
+              <Pager
+                initialPage={lastCardShown}
+                restoreKey={focusTick}
+                onPageChange={(i) => {
+                  lastCardShown = i;
+                }}
+              >
                 {cardOrder.map((key) => ringCards[key])}
               </Pager>
             </View>

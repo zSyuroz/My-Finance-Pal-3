@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import AppText from '../components/AppText';
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard';
+import { useSaveAndClose } from '../components/useSaveAndClose';
 import { budgetSummary, type BudgetSummary } from '../budget';
 import {
   expensesBetween,
@@ -84,11 +85,12 @@ export default function BudgetsScreen({ navigation }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh]);
 
-  const save = async () => {
-    await persist();
-    leaving.current = true;
-    navigation.goBack();
-  };
+  const { save, saveFailedDialog } = useSaveAndClose({
+    persist,
+    leaving,
+    goBack: () => navigation.goBack(),
+    what: 'your budgets',
+  });
 
 
 
@@ -181,6 +183,7 @@ export default function BudgetsScreen({ navigation }: Props) {
         title="Save your budget?"
         message="You've changed a limit without saving it."
       />
+      {saveFailedDialog}
 
       {summary && summary.unbudgetedSpend > 0 && (
         // Money spent outside every limit would otherwise be invisible here,
