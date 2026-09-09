@@ -25,7 +25,6 @@ import {
   setEverydayAccount,
   setSavingsPerCycle,
   setProfile,
-  uid,
   upsertAccount,
   upsertGoal,
   upsertRecurring,
@@ -40,6 +39,22 @@ import { radius, shadow, type Theme } from '../theme';
 
 /** Strips anything that is not part of a number, then makes it positive. */
 const money = (v: string) => Math.abs(Number(v.replace(/[^0-9.]/g, '')) || 0);
+
+/**
+ * Fixed ids for what onboarding creates, rather than a fresh one each time.
+ *
+ * Onboarding is only marked complete on the last step, so anyone who closes
+ * the app partway — or is interrupted by a reload — sees it again. With a new
+ * id every run, entering a salary twice left two salary rules and the app
+ * planned around double the income. A stable id makes a second run overwrite
+ * the first, which is what someone filling the same form in again means.
+ */
+const ONBOARDING_ID = {
+  income: 'onboarding-income',
+  account: 'onboarding-account',
+  bill: (i: number) => `onboarding-bill-${i}`,
+  goal: (i: number) => `onboarding-goal-${i}`,
+};
 
 export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
   const { colors } = useTheme();
@@ -186,7 +201,7 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
       save: async () => {
         if (payDay == null || money(payAmount) <= 0) return;
         await upsertRecurringIncome({
-          id: uid(),
+          id: ONBOARDING_ID.income,
           amount: money(payAmount),
           source: 'Salary',
           category: 'salary',
@@ -227,7 +242,7 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
       ready: bankName.trim() !== '' && bankBalance.trim() !== '',
       save: async () => {
         if (bankName.trim() === '') return;
-        const id = uid();
+        const id = ONBOARDING_ID.account;
         await upsertAccount({
           id,
           name: bankName.trim(),
@@ -287,9 +302,9 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
         // The draft counts even if Add was never pressed: filling a form and
         // pressing Continue plainly means "keep this".
         const all = billDraft ? [...bills, billDraft] : bills;
-        for (const b of all) {
+        for (const [i, b] of all.entries()) {
           await upsertRecurring({
-            id: uid(),
+            id: ONBOARDING_ID.bill(i),
             amount: b.amount,
             category: 'bills',
             label: b.label,
@@ -438,9 +453,9 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
       ready: goals.length > 0 || goalDraft != null || money(savePerCycle) > 0,
       save: async () => {
         const all = goalDraft ? [...goals, goalDraft] : goals;
-        for (const g of all) {
+        for (const [i, g] of all.entries()) {
           await upsertGoal({
-            id: uid(),
+            id: ONBOARDING_ID.goal(i),
             name: g.name,
             target: g.target,
             saved: 0,
@@ -552,8 +567,13 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
           // Left for the app proper to report; onboarding keeps moving.
         }
       }
+      // Marked as soon as the first step is behind them, not only at the end.
+      // Six steps is a long way to get through in one sitting, and anyone who
+      // closed the app partway was shown the whole thing again on next launch —
+      // which is how a salary got entered twice. Everything here is optional and
+      // reachable in Settings, so having started is enough.
+      await markOnboardingComplete();
       if (isLast) {
-        await markOnboardingComplete();
         onDone();
         return;
       }
