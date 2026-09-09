@@ -42,9 +42,10 @@ export default function MoneySettingsScreen({ navigation }: Props) {
     }, [])
   );
 
-  // Either half is worth reporting on its own. Keying this off the day alone
-  // meant a saved salary read as "Not set", which looks exactly like the save
-  // having failed.
+  // Read off the recurring income rules: the amount is everything expected in
+  // a cycle and the day is the one it turns on. Either half is worth reporting
+  // on its own — keying this off the day alone meant a saved salary read as
+  // "Not set", which looks exactly like the save having failed.
   const money = payday.amount != null ? `${currencyPrefix()}${payday.amount.toLocaleString()}` : null;
   const dayText = payday.day != null ? ordinal(payday.day) : null;
   const paydayValue =
@@ -61,8 +62,8 @@ export default function MoneySettingsScreen({ navigation }: Props) {
         />
         <SettingsRow
           icon="wallet"
-          label="Pay rhythm"
-          onPress={() => navigation.navigate('PayRhythm')}
+          label="Income"
+          onPress={() => navigation.navigate('RecurringIncome')}
           right={<RowValue>{paydayValue}</RowValue>}
         />
         <SettingsRow

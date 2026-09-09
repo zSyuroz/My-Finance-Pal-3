@@ -13,7 +13,8 @@ export type HomeStackParams = {
   History: undefined;
   CategoryBreakdown: undefined;
   Profile: undefined;
-  PayRhythm: undefined;
+  RecurringIncome: undefined;
+  RecurringIncomeEditor: { id?: string };
   Accounts: undefined;
   AccountEditor: { id?: string };
   Budgets: undefined;
@@ -43,7 +44,8 @@ export type SettingsStackParams = {
   AppPreferences: undefined;
   MoneySettings: undefined;
   DataSettings: undefined;
-  PayRhythm: undefined;
+  RecurringIncome: undefined;
+  RecurringIncomeEditor: { id?: string };
   Accounts: undefined;
   AccountEditor: { id?: string };
   HomeCards: undefined;

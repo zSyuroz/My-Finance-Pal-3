@@ -102,7 +102,7 @@ export default function SettingsScreen({ navigation }: Props) {
           <SettingsRow
             icon="coin"
             label="Finances"
-            sub="Currency, pay rhythm, accounts, budgets, goals"
+            sub="Currency, income, accounts, budgets, goals"
             onPress={() => navigation.navigate('MoneySettings')}
             right={<Chevron />}
           />

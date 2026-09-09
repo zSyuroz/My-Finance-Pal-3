@@ -55,8 +55,9 @@ import DataScreen from './src/screens/DataScreen';
 import SharedExpenseEditorScreen from './src/screens/SharedExpenseEditorScreen';
 import ScanReceiptScreen from './src/screens/ScanReceiptScreen';
 import SharedScreen from './src/screens/SharedScreen';
-import PayRhythmScreen from './src/screens/PayRhythmScreen';
 import RecurringExpensesScreen from './src/screens/RecurringExpensesScreen';
+import RecurringIncomeScreen from './src/screens/RecurringIncomeScreen';
+import RecurringIncomeEditorScreen from './src/screens/RecurringIncomeEditorScreen';
 import RecurringExpenseEditorScreen from './src/screens/RecurringExpenseEditorScreen';
 import LegalScreen from './src/screens/LegalScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
@@ -155,10 +156,11 @@ function HomeStackScreen() {
           Home belongs to Home's history, so Back returns there. */}
       <HomeStack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
       <HomeStack.Screen
-        name="PayRhythm"
-        component={PayRhythmScreen}
-        options={{ title: 'Pay rhythm' }}
+        name="RecurringIncome"
+        component={RecurringIncomeScreen}
+        options={{ title: 'Income' }}
       />
+      <HomeStack.Screen name="RecurringIncomeEditor" component={RecurringIncomeEditorScreen} />
       <HomeStack.Screen
         name="Accounts"
         component={AccountsScreen}
@@ -250,10 +252,11 @@ function SettingsStackScreen() {
         options={{ title: 'Data' }}
       />
       <SettingsStack.Screen
-        name="PayRhythm"
-        component={PayRhythmScreen}
-        options={{ title: 'Pay rhythm' }}
+        name="RecurringIncome"
+        component={RecurringIncomeScreen}
+        options={{ title: 'Income' }}
       />
+      <SettingsStack.Screen name="RecurringIncomeEditor" component={RecurringIncomeEditorScreen} />
       <SettingsStack.Screen
         name="Accounts"
         component={AccountsScreen}

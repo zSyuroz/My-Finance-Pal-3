@@ -1,4 +1,5 @@
 import type { ExpenseRow } from './db';
+import { cents, fromCents } from './money';
 import { currencyPrefix } from './currency';
 
 export type CategoryKey = 'food' | 'transport' | 'shopping' | 'bills' | 'other';
@@ -46,6 +47,16 @@ export function categoryMeta(key: string) {
   return CATEGORIES.find((c) => c.key === key) ?? CATEGORIES[CATEGORIES.length - 1];
 }
 
+/**
+ * Money rounded to whole units, for figures that are estimates rather than
+ * records. A forecast printed to the cent claims a precision it does not have,
+ * and is too long for a half-width tile besides.
+ */
+export function fmtMoneyRough(n: number): string {
+  const sign = n < 0 ? '-' : '';
+  return `${sign}${currencyPrefix()}${Math.round(Math.abs(n)).toLocaleString()}`;
+}
+
 export function fmtMoney(n: number): string {
   const sign = n < 0 ? '-' : '';
   return `${sign}${currencyPrefix()}${Math.abs(n).toLocaleString(undefined, {
@@ -54,19 +65,28 @@ export function fmtMoney(n: number): string {
   })}`;
 }
 
+/**
+ * Adds money in cents, not in floats.
+ *
+ * Plain addition drifts: a hundred 1-cent expenses came to 1.0000000000000007
+ * and 0.10 + 0.20 to 0.30000000000000004. Formatting hides it, but the totals
+ * feed comparisons — whether a cycle is overspent, how full a budget ring is —
+ * and a total that is a fraction of a cent over its limit is over it.
+ * Everywhere else in the app already sums in cents; this was the exception.
+ */
 export function sumAmount(rows: { amount: number }[]): number {
-  return rows.reduce((sum, r) => sum + r.amount, 0);
+  return fromCents(rows.reduce((total, r) => total + cents(r.amount), 0));
 }
 
 export function topCategory(rows: ExpenseRow[]): { key: CategoryKey; total: number } | null {
   if (rows.length === 0) return null;
   const totals = new Map<string, number>();
-  for (const r of rows) totals.set(r.category, (totals.get(r.category) ?? 0) + r.amount);
+  for (const r of rows) totals.set(r.category, (totals.get(r.category) ?? 0) + cents(r.amount));
   let best: { key: CategoryKey; total: number } | null = null;
   for (const [key, total] of totals) {
     if (!best || total > best.total) best = { key: key as CategoryKey, total };
   }
-  return best;
+  return best && { key: best.key, total: fromCents(best.total) };
 }
 
 // Percent change in spend from `previous` to `current`. Null when there's

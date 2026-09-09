@@ -6,10 +6,11 @@ import AppText from '../components/AppText';
 import ConfirmDialog from '../components/ConfirmDialog';
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard';
 import { useSaveAndClose } from '../components/useSaveAndClose';
-import { todayKey } from '../dateUtils';
+import { prettyDate, todayKey } from '../dateUtils';
 import {
   deleteAccount,
   getAccount,
+  listAccounts,
   setEverydayAccount,
   uid,
   upsertAccount,
@@ -53,6 +54,18 @@ export default function AccountEditorScreen({ navigation, route }: Props) {
   useEffect(() => {
     navigation.setOptions({ title: isNew ? 'Add an account' : 'Edit account' });
   }, [navigation, isNew]);
+
+  // On by default, but only for the first account: the flag is exclusive, so
+  // defaulting every new account to it would quietly move "the account I spend
+  // from" onto whichever one was added last. Left off used to mean a balance
+  // that never moved no matter how much was logged against it, which read as
+  // the app ignoring your money.
+  useEffect(() => {
+    if (!isNew) return;
+    listAccounts().then((rows) => {
+      if (!rows.some((a) => a.isEveryday)) setEveryday(true);
+    });
+  }, [isNew]);
 
   useEffect(() => {
     if (!id) return;
@@ -103,6 +116,11 @@ export default function AccountEditorScreen({ navigation, route }: Props) {
     const value = Math.abs(Number(balance.replace(/[^0-9.]/g, '')) || 0);
     const now = Date.now();
     const accountId = id || uid();
+    // Only a changed balance is a new statement of fact. Re-dating on every
+    // save meant ticking a checkbox moved the line the app counts from, and
+    // months of income silently stopped counting — the user changed one
+    // setting and their net worth quietly lost four salaries.
+    const balanceRestated = isNew || value !== (existing?.balance ?? 0);
     // The toggle is hidden for debts, so a kind switched to a liability must
     // not keep a flag the user can no longer see or clear.
     const spendFrom = everyday && !accountKind(kind).liability;
@@ -115,8 +133,9 @@ export default function AccountEditorScreen({ navigation, route }: Props) {
       apr: Number(apr.replace(/[^0-9.]/g, '')) || 0,
       minPayment: Number(minPayment.replace(/[^0-9.]/g, '')) || 0,
       // Stating a balance re-dates it to today, which clears the accumulated
-      // adjustment — the number you just typed is true as of now.
-      balanceAsOf: todayKey(),
+      // adjustment — the number you just typed is true as of now. Leaving it
+      // alone keeps the date, so everything logged since still counts.
+      balanceAsOf: balanceRestated ? todayKey() : existing?.balanceAsOf || todayKey(),
       isEveryday: spendFrom ? 1 : 0,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
@@ -172,6 +191,16 @@ export default function AccountEditorScreen({ navigation, route }: Props) {
           ? 'Enter what you owe as a positive number — it is subtracted for you.'
           : 'What the account holds today.'}
       </AppText>
+      {/* Without this the counting line is invisible: the balance looks wrong
+          rather than out of date, and there is nothing on screen to explain
+          which transactions are being added to it. */}
+      {!isNew && !!existing?.balanceAsOf && (
+        <AppText variant="mono" muted style={styles.hint}>
+          {existing.balanceAsOf === todayKey()
+            ? 'Stated today — anything logged from now on is added to it.'
+            : `Stated ${prettyDate(existing.balanceAsOf)}. Only what you logged after that is added — change the amount to restate it as of today.`}
+        </AppText>
+      )}
 
       <AppText variant="label" muted style={[styles.fieldLabel, styles.spaced]}>
         Type

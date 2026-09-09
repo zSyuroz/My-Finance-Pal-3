@@ -101,7 +101,10 @@ export type SafeToSpend = {
   perDay: number | null;
   daysLeft: number;
   spent: number;
+  /** Bills due before payday that have not posted yet. */
   committed: number;
+  /** What is going into goals when the cycle ends. */
+  saving: number;
   income: number;
   /** Share of the cycle's money still unspent, for the ring. */
   fraction: number | null;
@@ -111,17 +114,21 @@ export type SafeToSpend = {
 /**
  * What is genuinely free to spend before the next payday.
  *
- * Bills that have not posted yet are subtracted, not just the ones that have:
- * money that is going to leave on the 28th is not yours on the 27th, and a
- * "safe to spend" that says otherwise is worse than no number at all.
+ * Three things come off, not one. Bills that have not posted yet are
+ * subtracted as well as the ones that have — money leaving on the 28th is not
+ * yours on the 27th — and so is what you have said you put aside each cycle.
+ * Saving you have committed to is spoken for in exactly the way rent is; a
+ * number that offers it back to you is the reason people miss their targets.
  */
 export function safeToSpend(
   income: number | null,
   spent: number,
   committed: number,
+  saving: number,
   daysUntilPayday: number
 ): SafeToSpend {
   const days = Math.max(1, daysUntilPayday);
+  const setAside = Math.max(0, round2(saving));
   if (income == null || !(income > 0)) {
     return {
       amount: null,
@@ -129,19 +136,21 @@ export function safeToSpend(
       daysLeft: days,
       spent: round2(spent),
       committed: round2(committed),
+      saving: setAside,
       income: 0,
       fraction: null,
       over: false,
     };
   }
 
-  const amount = round2(income - spent - committed);
+  const amount = round2(income - spent - committed - setAside);
   return {
     amount,
     perDay: round2(amount / days),
     daysLeft: days,
     spent: round2(spent),
     committed: round2(committed),
+    saving: setAside,
     income: round2(income),
     // What is left, not what is gone: the ring empties as the cycle is used up.
     fraction: Math.max(0, Math.min(1, amount / income)),

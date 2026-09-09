@@ -1,5 +1,7 @@
 // The pay cycle: where "now" sits between the previous payday and the next one.
 
+import { now } from './dateUtils';
+
 function clampDay(year: number, month0: number, day: number): Date {
   const lastDay = new Date(year, month0 + 1, 0).getDate();
   return new Date(year, month0, Math.min(day, lastDay));
@@ -16,8 +18,8 @@ export type PayCycle = {
   fraction: number; // 0..1 progress through the current cycle
 };
 
-export function payCycle(day: number, now = new Date()): PayCycle {
-  const today = startOfDay(now);
+export function payCycle(day: number, at: Date = now()): PayCycle {
+  const today = startOfDay(at);
   const y = today.getFullYear();
   const m = today.getMonth();
 
@@ -59,7 +61,7 @@ export function paydayKeyFor(year: number, month1: number, day: number): string 
  * it we are.
  *
  * Falls back to the calendar month when no payday is set, so budgeting works
- * before someone fills in their pay rhythm. `elapsed` counts the current day
+ * before someone has any income set up. `elapsed` counts the current day
  * as one, so day one of a cycle divides by 1 rather than 0.
  */
 export function cycleWindow(

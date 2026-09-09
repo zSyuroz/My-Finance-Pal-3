@@ -12,6 +12,7 @@ import type { NavigationAction } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import AppText from '../components/AppText';
+import { useOnce } from '../components/useOnce';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PlatformDateTimePicker from '../components/PlatformDateTimePicker';
 import {
@@ -145,7 +146,9 @@ export default function EventEditorScreen({ route, navigation }: Props) {
     if (action) navigation.dispatch(action);
   };
 
-  const save = async () => {
+  // One press, one record: each save mints a fresh id, so a second tap
+  // during the write would store the same thing twice.
+  const save = useOnce(async () => {
     if (saving) return; // a second tap while the first is still writing
     setSaving(true);
     const row: EventRow = {
@@ -200,7 +203,7 @@ export default function EventEditorScreen({ route, navigation }: Props) {
 
     leavingRef.current = true;
     navigation.goBack();
-  };
+  });
 
   useLayoutEffect(() => {
     navigation.setOptions({

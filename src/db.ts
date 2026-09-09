@@ -1,6 +1,8 @@
 import * as SQLite from 'expo-sqlite';
 
+import { allocateSavings } from './autoSave';
 import { todayKey } from './dateUtils';
+import { cents, fromCents } from './money';
 
 export type EventRow = {
   id: string;
@@ -176,6 +178,41 @@ export type RecurringRow = {
   dayOfMonth: number; // 1-31, clamped to the month's real length
   active: number; // 0 | 1
   createdAt: number; // epoch ms
+  /**
+   * YYYY-MM of the last month this rule posted, or null before it ever has.
+   *
+   * Inferring it from whether an expense exists made a deleted bill look like a
+   * rule that had never fired, so the next visit to Home posted it again and the
+   * row would not stay deleted.
+   */
+  lastPostedMonth?: string | null;
+};
+
+/**
+ * A standing income: what arrives, on which day of the month.
+ *
+ * The twin of RecurringRow. Bills posted themselves and pay did not, so the
+ * app could watch three paydays go by and report that nothing had come in.
+ * The rule that says "$2,192 on the 9th" is also what the pay cycle is
+ * measured from — there is no separate payday setting any more.
+ */
+export type RecurringIncomeRow = {
+  id: string;
+  amount: number;
+  source: string; // e.g. "Acme Ltd"
+  category: string; // one of INCOME_CATEGORIES
+  dayOfMonth: number; // 1-31, clamped to the month's real length
+  active: number; // 0 | 1
+  createdAt: number; // epoch ms
+  /**
+   * YYYY-MM of the last month this rule posted, or null before it ever has.
+   *
+   * The rule remembers firing rather than the app inferring it from whether a
+   * row happens to exist. Asking "is there income for this month" turned a
+   * deleted row into a rule that had never fired, so the next visit to Home
+   * posted it again and the row you deleted came back.
+   */
+  lastPostedMonth?: string | null;
 };
 
 export type IncomeRow = {
@@ -186,6 +223,7 @@ export type IncomeRow = {
   note: string;
   date: string; // YYYY-MM-DD
   createdAt: number; // epoch ms
+  recurringId?: string | null; // set when auto-posted from a recurring income
 };
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
@@ -245,7 +283,18 @@ function openDb() {
           label TEXT NOT NULL DEFAULT '',
           dayOfMonth INTEGER NOT NULL,
           active INTEGER NOT NULL DEFAULT 1,
-          createdAt INTEGER NOT NULL
+          createdAt INTEGER NOT NULL,
+          lastPostedMonth TEXT
+        );
+        CREATE TABLE IF NOT EXISTS recurring_income (
+          id TEXT PRIMARY KEY NOT NULL,
+          amount REAL NOT NULL,
+          source TEXT NOT NULL DEFAULT '',
+          category TEXT NOT NULL DEFAULT 'salary',
+          dayOfMonth INTEGER NOT NULL,
+          active INTEGER NOT NULL DEFAULT 1,
+          createdAt INTEGER NOT NULL,
+          lastPostedMonth TEXT
         );
         CREATE TABLE IF NOT EXISTS accounts (
           id TEXT PRIMARY KEY NOT NULL,
@@ -327,7 +376,8 @@ function openDb() {
           category TEXT NOT NULL DEFAULT 'other',
           note TEXT NOT NULL DEFAULT '',
           date TEXT NOT NULL,
-          createdAt INTEGER NOT NULL
+          createdAt INTEGER NOT NULL,
+          recurringId TEXT
         );
         -- Every dated query in the app filters or sorts on these, and they are
         -- the only tables that grow without bound: one statement import adds
@@ -341,6 +391,21 @@ function openDb() {
       `);
       // Upgrade paths for tables created before a column existed. Each one
       // throws harmlessly once the column is already there.
+      try {
+        await db.execAsync('ALTER TABLE income ADD COLUMN recurringId TEXT');
+      } catch {
+        // Already there.
+      }
+      try {
+        await db.execAsync('ALTER TABLE recurring_income ADD COLUMN lastPostedMonth TEXT');
+      } catch {
+        // Already there.
+      }
+      try {
+        await db.execAsync('ALTER TABLE recurring_expenses ADD COLUMN lastPostedMonth TEXT');
+      } catch {
+        // Already there.
+      }
       try {
         await db.execAsync('ALTER TABLE expenses ADD COLUMN recurringId TEXT');
       } catch {
@@ -425,6 +490,13 @@ function openDb() {
       } catch {
         // column already exists
       }
+      // Indexes on columns that only exist after the upgrades above. Creating
+      // them in the batch that makes the tables would abort it on an older
+      // database, where the column does not arrive until the ALTER runs.
+      await db.execAsync(
+        'CREATE INDEX IF NOT EXISTS idx_income_recurring ON income(recurringId);'
+      );
+
       // Confirm the schema is really there before handing the connection out.
       // A connection can open successfully and still have no tables behind it
       // — if the underlying file is replaced while the app holds it open, for
@@ -751,6 +823,9 @@ export const KEYS = {
   homeCardOrder: 'homeCardOrder',
   cycleDay: 'cycleDay',
   fxRates: 'fxRates',
+  savingsPerCycle: 'savingsPerCycle',
+  /** The cycle most recently credited, so a cycle is never credited twice. */
+  savingsCreditedFor: 'savingsCreditedFor',
 } as const;
 
 export type Profile = {
@@ -781,28 +856,66 @@ export async function setProfile(profile: Profile): Promise<void> {
 
 export type Payday = { amount: number | null; day: number | null };
 
+/**
+ * The pay cycle, read off the recurring income rules.
+ *
+ * There used to be a separate "pay rhythm" holding an amount and a day that
+ * did nothing but draw a countdown — you told the app when you were paid and
+ * it still never recorded being paid. Now one rule does both: it posts the
+ * money and it says where the cycle turns.
+ *
+ * The amount is everything expected in a cycle, since that is what a cycle's
+ * spending is measured against. The day belongs to the largest rule, because
+ * a cycle turns on the payslip, not on a small dividend that happens to land
+ * earlier.
+ */
 export async function getPayday(): Promise<Payday> {
+  const rules = (await listRecurringIncome()).filter((r) => r.active);
+  if (rules.length === 0) return { amount: null, day: null };
+
+  const total = rules.reduce((sum, r) => sum + cents(r.amount), 0) / 100;
+  const main = rules.reduce((biggest, r) => (r.amount > biggest.amount ? r : biggest));
+  return { amount: total > 0 ? total : null, day: main.dayOfMonth };
+}
+
+/**
+ * Carries a pre-rules pay rhythm into a rule, once.
+ *
+ * Anyone who had already entered a salary and a payday would otherwise open
+ * the app to an empty cycle and a Home screen that had forgotten their money.
+ * The old settings are cleared as they are converted, so this cannot run
+ * twice, and it stays out of the way of anyone who has already made a rule.
+ */
+export function migratePaydayToRule(): Promise<void> {
+  // Reads the old settings, checks no rule exists, then writes one — the same
+  // check-then-act the posters had, and the same race: two Home focuses could
+  // both find nothing and both convert. It shares their lock.
+  return serialised(convertPaydaySetting);
+}
+
+async function convertPaydaySetting(): Promise<void> {
   const [amount, day] = await Promise.all([
     getSetting(KEYS.salaryAmount),
     getSetting(KEYS.salaryDay),
   ]);
-  return {
-    amount: amount != null && amount !== '' ? Number(amount) : null,
-    day: day != null && day !== '' ? Number(day) : null,
-  };
-}
+  if (amount == null && day == null) return;
 
-export async function setPayday(amount: number | null, day: number | null): Promise<void> {
-  if (amount != null && !Number.isNaN(amount)) {
-    await setSetting(KEYS.salaryAmount, String(amount));
-  } else {
-    await deleteSetting(KEYS.salaryAmount);
+  const value = amount != null && amount !== '' ? Number(amount) : 0;
+  const dayOfMonth = day != null && day !== '' ? Number(day) : 0;
+  const existing = await listRecurringIncome();
+  if (existing.length === 0 && value > 0 && dayOfMonth >= 1 && dayOfMonth <= 31) {
+    await upsertRecurringIncome({
+      id: uid(),
+      amount: value,
+      source: 'Salary',
+      category: 'salary',
+      dayOfMonth,
+      active: 1,
+      createdAt: Date.now(),
+    });
   }
-  if (day != null && !Number.isNaN(day)) {
-    await setSetting(KEYS.salaryDay, String(day));
-  } else {
-    await deleteSetting(KEYS.salaryDay);
-  }
+  await deleteSetting(KEYS.salaryAmount);
+  await deleteSetting(KEYS.salaryDay);
 }
 
 export async function getNotificationsEnabled(): Promise<boolean> {
@@ -935,12 +1048,16 @@ export async function getRecurring(id: string): Promise<RecurringRow | null> {
 export async function upsertRecurring(r: RecurringRow): Promise<void> {
   const db = await getDb();
   await db.runAsync(
-    `INSERT INTO recurring_expenses (id, amount, category, label, dayOfMonth, active, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO recurring_expenses
+       (id, amount, category, label, dayOfMonth, active, createdAt, lastPostedMonth)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        amount=excluded.amount, category=excluded.category, label=excluded.label,
        dayOfMonth=excluded.dayOfMonth, active=excluded.active`,
-    [r.id, r.amount, r.category, r.label, r.dayOfMonth, r.active, r.createdAt]
+    [
+      r.id, r.amount, r.category, r.label, r.dayOfMonth, r.active, r.createdAt,
+      r.lastPostedMonth ?? null,
+    ]
   );
 }
 
@@ -957,13 +1074,17 @@ export async function deleteRecurring(id: string): Promise<void> {
  * were newly posted (each paired with the expense it created), so callers
  * can notify about them.
  */
-export async function applyDueRecurring(): Promise<
+export function applyDueRecurring(): Promise<{ rule: RecurringRow; expense: ExpenseRow }[]> {
+  return serialised(postDueRecurring);
+}
+
+async function postDueRecurring(): Promise<
   { rule: RecurringRow; expense: ExpenseRow }[]
 > {
   const db = await getDb();
   const today = todayKey();
   const [y, m, d] = today.split('-').map(Number);
-  const monthStart = `${y}-${String(m).padStart(2, '0')}-01`;
+  const month = `${y}-${String(m).padStart(2, '0')}`;
   const lastDayOfMonth = new Date(y, m, 0).getDate();
 
   const posted: { rule: RecurringRow; expense: ExpenseRow }[] = [];
@@ -972,14 +1093,25 @@ export async function applyDueRecurring(): Promise<
     if (!r.active) continue;
     const dueDay = Math.min(r.dayOfMonth, lastDayOfMonth);
     if (d < dueDay) continue;
+    if (r.lastPostedMonth === month) continue;
 
-    const already = await db.getFirstAsync<{ id: string }>(
-      'SELECT id FROM expenses WHERE recurringId = ? AND date >= ? AND date <= ?',
-      [r.id, monthStart, today]
-    );
-    if (already) continue;
+    // Rules made before the rule remembered anything: look for the row once, so
+    // an upgrade does not post this month a second time.
+    if (r.lastPostedMonth == null) {
+      const already = await db.getFirstAsync<{ id: string }>(
+        'SELECT id FROM expenses WHERE recurringId = ? AND date >= ? AND date <= ?',
+        [r.id, `${month}-01`, today]
+      );
+      if (already) {
+        await db.runAsync('UPDATE recurring_expenses SET lastPostedMonth = ? WHERE id = ?', [
+          month,
+          r.id,
+        ]);
+        continue;
+      }
+    }
 
-    const dueDate = `${y}-${String(m).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
+    const dueDate = `${month}-${String(dueDay).padStart(2, '0')}`;
     const expense: ExpenseRow = {
       id: uid(),
       amount: r.amount,
@@ -994,7 +1126,128 @@ export async function applyDueRecurring(): Promise<
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [expense.id, expense.amount, expense.category, expense.note, expense.date, expense.createdAt, expense.recurringId]
     );
+    // Marked straight after the row lands, so a crash between the two costs at
+    // worst one duplicate rather than a rule that never posts again.
+    await db.runAsync('UPDATE recurring_expenses SET lastPostedMonth = ? WHERE id = ?', [
+      month,
+      r.id,
+    ]);
     posted.push({ rule: r, expense });
+  }
+  return posted;
+}
+
+// ---------- Recurring income ----------
+// The mirror of recurring expenses: a rule posts a real income row once its
+// day arrives, so pay flows through the same totals, trends and Recent list
+// as anything typed by hand.
+
+export async function listRecurringIncome(): Promise<RecurringIncomeRow[]> {
+  const db = await getDb();
+  return db.getAllAsync<RecurringIncomeRow>(
+    'SELECT * FROM recurring_income ORDER BY dayOfMonth ASC'
+  );
+}
+
+export async function getRecurringIncome(id: string): Promise<RecurringIncomeRow | null> {
+  const db = await getDb();
+  return db.getFirstAsync<RecurringIncomeRow>(
+    'SELECT * FROM recurring_income WHERE id = ?',
+    [id]
+  );
+}
+
+export async function upsertRecurringIncome(r: RecurringIncomeRow): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `INSERT INTO recurring_income
+       (id, amount, source, category, dayOfMonth, active, createdAt, lastPostedMonth)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       amount=excluded.amount, source=excluded.source, category=excluded.category,
+       dayOfMonth=excluded.dayOfMonth, active=excluded.active`,
+    [
+      r.id, r.amount, r.source, r.category, r.dayOfMonth, r.active, r.createdAt,
+      r.lastPostedMonth ?? null,
+    ]
+  );
+}
+
+export async function deleteRecurringIncome(id: string): Promise<void> {
+  const db = await getDb();
+  // The rule goes; income it already posted stays as real history.
+  await db.runAsync('DELETE FROM recurring_income WHERE id = ?', [id]);
+}
+
+/**
+ * Posts one income row for every active rule whose day has arrived this month
+ * and which has not already posted. The expense poster's logic exactly — the
+ * asymmetry between the two was the bug this fixes.
+ */
+/**
+ * Serialises the auto-posting so two runs cannot interleave.
+ *
+ * Every one of these is a check followed by a write, and Home fires them on
+ * focus: two focuses in quick succession had both runs read "nothing posted
+ * yet" before either wrote, and the same pay landed twice. Chaining them means
+ * the second run reads what the first one did.
+ */
+let duePosting: Promise<unknown> = Promise.resolve();
+function serialised<T>(work: () => Promise<T>): Promise<T> {
+  const next = duePosting.then(work, work);
+  duePosting = next.catch(() => undefined);
+  return next;
+}
+
+export function applyDueIncome(): Promise<{ rule: RecurringIncomeRow; income: IncomeRow }[]> {
+  return serialised(postDueIncome);
+}
+
+async function postDueIncome(): Promise<{ rule: RecurringIncomeRow; income: IncomeRow }[]> {
+  const db = await getDb();
+  const today = todayKey();
+  const [y, m, d] = today.split('-').map(Number);
+  const month = `${y}-${String(m).padStart(2, '0')}`;
+  const lastDayOfMonth = new Date(y, m, 0).getDate();
+
+  const posted: { rule: RecurringIncomeRow; income: IncomeRow }[] = [];
+  for (const r of await listRecurringIncome()) {
+    if (!r.active) continue;
+    const dueDay = Math.min(r.dayOfMonth, lastDayOfMonth);
+    if (d < dueDay) continue;
+    if (r.lastPostedMonth === month) continue;
+
+    // Rules made before the rule remembered anything: fall back to looking for
+    // the row once, so an upgrade does not post this month a second time.
+    if (r.lastPostedMonth == null) {
+      const already = await db.getFirstAsync<{ id: string }>(
+        'SELECT id FROM income WHERE recurringId = ? AND date >= ? AND date <= ?',
+        [r.id, `${month}-01`, today]
+      );
+      if (already) {
+        await db.runAsync('UPDATE recurring_income SET lastPostedMonth = ? WHERE id = ?', [
+          month,
+          r.id,
+        ]);
+        continue;
+      }
+    }
+
+    const income: IncomeRow = {
+      id: uid(),
+      amount: r.amount,
+      source: r.source,
+      category: r.category,
+      note: '',
+      date: `${month}-${String(dueDay).padStart(2, '0')}`,
+      createdAt: Date.now(),
+      recurringId: r.id,
+    };
+    await upsertIncome(income);
+    // Marked immediately after the row lands, so a crash between the two costs
+    // at worst one duplicate rather than a rule that never posts again.
+    await db.runAsync('UPDATE recurring_income SET lastPostedMonth = ? WHERE id = ?', [month, r.id]);
+    posted.push({ rule: r, income });
   }
   return posted;
 }
@@ -1030,14 +1283,14 @@ export async function getIncome(id: string): Promise<IncomeRow | null> {
 export async function upsertIncome(i: IncomeRow): Promise<void> {
   const db = await getDb();
   await db.runAsync(
-    `INSERT INTO income (id, amount, source, category, note, date, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO income (id, amount, source, category, note, date, createdAt, recurringId)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        amount=excluded.amount, source=excluded.source, category=excluded.category,
        note=excluded.note, date=excluded.date`,
     // `?? 'other'` because backups written before income had categories carry
     // no such field, and binding undefined is an error rather than a default.
-    [i.id, i.amount, i.source, i.category ?? 'other', i.note, i.date, i.createdAt]
+    [i.id, i.amount, i.source, i.category ?? 'other', i.note, i.date, i.createdAt, i.recurringId ?? null]
   );
 }
 
@@ -1360,6 +1613,69 @@ export async function getCycleDayOverride(): Promise<number | null> {
 export async function setCycleDayOverride(day: number | null): Promise<void> {
   if (day == null) await deleteSetting(KEYS.cycleDay);
   else await setSetting(KEYS.cycleDay, String(day));
+}
+
+/** What the user says they set aside each cycle. Null when switched off. */
+export async function getSavingsPerCycle(): Promise<number | null> {
+  const raw = await getSetting(KEYS.savingsPerCycle);
+  if (raw == null || raw === '') return null;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+export async function setSavingsPerCycle(amount: number | null): Promise<void> {
+  if (amount == null || !(amount > 0)) await deleteSetting(KEYS.savingsPerCycle);
+  else await setSetting(KEYS.savingsPerCycle, String(amount));
+}
+
+/**
+ * Credits this cycle's saving across the goals, once.
+ *
+ * Keyed on the cycle's start date rather than a timestamp: opening the app
+ * five times in a month must not put the money in five times, and the cycle
+ * a person is in is the thing that decides whether they have been paid yet.
+ *
+ * Missed cycles are not back-filled. Someone who did not open the app all
+ * summer did not thereby save three months of money, and inventing it would
+ * put a goal past its target on the strength of nothing.
+ */
+export function applyDueSavings(cycleStart: string): Promise<{ goal: GoalRow; add: number }[]> {
+  return serialised(() => creditDueSavings(cycleStart));
+}
+
+/**
+ * Credits a cycle of saving, once that cycle has actually passed.
+ *
+ * It used to pay out the moment you named an amount, which claimed progress
+ * you had not made yet: say "$500 a cycle" on day one and the goals moved
+ * before a single day of it had gone by. Saving happens over a cycle, so the
+ * money lands when the cycle turns.
+ *
+ * The marker is the cycle the goals are paid up to. Setting it without paying
+ * anything is how a new arrangement starts: it records where you are, and the
+ * first credit comes at the next rollover.
+ */
+async function creditDueSavings(
+  cycleStart: string
+): Promise<{ goal: GoalRow; add: number }[]> {
+  const amount = await getSavingsPerCycle();
+  if (amount == null) return [];
+
+  const paidUpTo = await getSetting(KEYS.savingsCreditedFor);
+  if (paidUpTo == null) {
+    await setSetting(KEYS.savingsCreditedFor, cycleStart);
+    return [];
+  }
+  if (paidUpTo === cycleStart) return [];
+
+  const allocations = allocateSavings(amount, await listGoals());
+  for (const { goal, add } of allocations) {
+    await upsertGoal({ ...goal, saved: fromCents(cents(goal.saved) + cents(add)) });
+  }
+  // Advanced whether or not anything took the money: the cycle has passed
+  // either way, and a cycle with no goals in it is not one to pay twice.
+  await setSetting(KEYS.savingsCreditedFor, cycleStart);
+  return allocations;
 }
 
 /** The day cycles actually reset on: the override if set, else payday. */

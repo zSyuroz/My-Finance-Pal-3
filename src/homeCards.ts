@@ -3,16 +3,17 @@
  *
  * The pager was written assuming everyone cares most about today's spending,
  * which is only true of some people: anyone paying down a card or building a
- * cushion opens the app for the other number and has to swipe for it every
- * single time. Cheap to make it a preference, and it is the first thing seen
- * on launch, so it is worth getting right for each person.
+ * cushion opens the app for the other number and would have to swipe for it
+ * every single time. It is the first thing seen on launch, so it is worth
+ * getting right for each person — hence both a considered default and a
+ * preference that overrides it.
  */
 
 export type HomeCardKey =
-  | 'spending'
-  | 'safe'
-  | 'bills'
   | 'networth'
+  | 'safe'
+  | 'spending'
+  | 'bills'
   | 'debt'
   | 'split';
 
@@ -24,16 +25,19 @@ export type HomeCard = {
 };
 
 /**
- * Ordered as they ship, which is also the order they answer questions in:
- * what have I spent, what can I still spend, what is already promised, and
- * then the three slower ones. Anyone who cares most about a different number
- * moves it to the front.
+ * Ordered as they ship: where you stand, then what that leaves you, then the
+ * detail. Net worth opens the app because it is the one figure that answers
+ * "am I getting anywhere" — today's spending is a detail of this month, and
+ * leading with it made the app feel like a receipt rather than a position.
+ *
+ * Anyone who cares most about a different number moves it to the front, and
+ * whatever they put first is what Home opens on from then on.
  */
 export const HOME_CARDS: HomeCard[] = [
-  { key: 'spending', label: 'Spending', hint: "What you have spent today, and how the cycle is going" },
-  { key: 'safe', label: 'Safe to spend', hint: 'What is left this cycle once bills are set aside' },
-  { key: 'bills', label: 'Bills ahead', hint: 'Recurring bills due before your next payday' },
   { key: 'networth', label: 'Net worth', hint: 'What you own minus what you owe, and your cash runway' },
+  { key: 'safe', label: 'Safe to spend', hint: 'What is left this cycle once bills are set aside' },
+  { key: 'spending', label: 'Spending', hint: "What you have spent today, and how the cycle is going" },
+  { key: 'bills', label: 'Bills ahead', hint: 'Recurring bills due before your next payday' },
   { key: 'debt', label: 'Debt', hint: 'What you owe, what it costs, and how much you have cleared' },
   { key: 'split', label: 'Split balance', hint: "What you are owed or owe across shared bills" },
 ];

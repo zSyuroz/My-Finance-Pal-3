@@ -5,8 +5,36 @@ export function toKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/* ------------------------------------------------------------------ *
+ * TEMPORARY: TIME TRAVEL — set both offsets to 0 to undo.
+ *
+ * Shifts the app's idea of "now" so you can see what it does on a future
+ * date: which bills post, where the pay cycle sits, what falls overdue.
+ * Months for jumping cycles, days for the finer cases — a bill due on the
+ * 10th and a payday on the 9th are a day apart, and whole months can never
+ * land between them.
+ *
+ * It only moves what the app *reads* as today — the data already in the
+ * database is untouched, but anything the app writes while shifted (a
+ * posted recurring bill, a net-worth snapshot) is written at the shifted
+ * date and stays there when you set this back.
+ * ------------------------------------------------------------------ */
+export const DEV_MONTH_OFFSET: number = 0;
+export const DEV_DAY_OFFSET: number = 0;
+
+/** The app's "now", shifted while either offset is not zero. */
+export function now(): Date {
+  const d = new Date();
+  // Months first: adding days afterwards means a shift onto the 31st of a
+  // short month lands where the calendar actually puts it, rather than being
+  // clamped and then nudged.
+  if (DEV_MONTH_OFFSET !== 0) d.setMonth(d.getMonth() + DEV_MONTH_OFFSET);
+  if (DEV_DAY_OFFSET !== 0) d.setDate(d.getDate() + DEV_DAY_OFFSET);
+  return d;
+}
+
 export function todayKey(): string {
-  return toKey(new Date());
+  return toKey(now());
 }
 
 export function fromKey(key: string): Date {

@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'reac
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import AppText from '../components/AppText';
+import { useOnce } from '../components/useOnce';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PlatformDateTimePicker from '../components/PlatformDateTimePicker';
 import {
@@ -213,7 +214,9 @@ export default function SharedExpenseEditorScreen({ route, navigation }: Props) 
     );
   };
 
-  const save = async () => {
+  // One press, one record: each save mints a fresh id, so a second tap
+  // during the write would store the same thing twice.
+  const save = useOnce(async () => {
     if (saving) return;
     if (foreign && rate <= 0) {
       setError(`Enter what 1 ${currency} is worth in ${home}, so this bill can be split.`);
@@ -301,7 +304,7 @@ export default function SharedExpenseEditorScreen({ route, navigation }: Props) 
 
     setSaving(false);
     navigation.goBack();
-  };
+  });
 
   useLayoutEffect(() => {
     navigation.setOptions({

@@ -4,6 +4,7 @@ import type { NavigationAction } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import AppText from '../components/AppText';
+import { useOnce } from '../components/useOnce';
 import ConfirmDialog from '../components/ConfirmDialog';
 import DayOfMonthGrid from '../components/DayOfMonthGrid';
 import {
@@ -109,7 +110,9 @@ export default function RecurringExpenseEditorScreen({ route, navigation }: Prop
     if (action) navigation.dispatch(action);
   };
 
-  const save = async () => {
+  // One press, one record: each save mints a fresh id, so a second tap
+  // during the write would store the same thing twice.
+  const save = useOnce(async () => {
     if (!canSave || day == null) return;
     const row: RecurringRow = {
       id: id ?? uid(),
@@ -123,7 +126,7 @@ export default function RecurringExpenseEditorScreen({ route, navigation }: Prop
     await upsertRecurring(row);
     leavingRef.current = true;
     navigation.goBack();
-  };
+  });
 
   useLayoutEffect(() => {
     navigation.setOptions({

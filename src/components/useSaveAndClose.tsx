@@ -1,6 +1,7 @@
 import { useState, type MutableRefObject, type ReactNode } from 'react';
 
 import ConfirmDialog from './ConfirmDialog';
+import { useOnce } from './useOnce';
 
 /**
  * Save, then leave — and say so when the save does not happen.
@@ -26,12 +27,14 @@ export function useSaveAndClose({
   /** Told before leaving, so the unsaved-changes guard stays quiet. */
   leaving: MutableRefObject<boolean>;
   goBack: () => void;
-  /** Names the thing in the failure message, e.g. "your pay rhythm". */
+  /** Names the thing in the failure message, e.g. "this income". */
   what: string;
 }): { save: () => Promise<void>; saveFailedDialog: ReactNode } {
   const [failed, setFailed] = useState<string | null>(null);
 
-  const save = async () => {
+  // Guarded, because every persist mints a fresh id: two taps on Save wrote
+  // the record twice, which is how one salary became two identical rules.
+  const save = useOnce(async () => {
     try {
       await persist();
     } catch (err) {
@@ -42,7 +45,7 @@ export function useSaveAndClose({
     }
     leaving.current = true;
     goBack();
-  };
+  });
 
   const saveFailedDialog = (
     <ConfirmDialog

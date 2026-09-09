@@ -16,6 +16,7 @@ import {
   type SharedExpenseRow,
   type SharedSplitRow,
   type PaymentRow,
+  type RecurringIncomeRow,
   type RecurringRow,
   captureNetWorth,
   getNotificationsEnabled,
@@ -30,6 +31,8 @@ import {
   listGoals,
   listNetWorthSnapshots,
   listPeople,
+  listRecurringIncome,
+  upsertRecurringIncome,
   listRecurring,
   listSharedExpenses,
   listSplits,
@@ -55,7 +58,8 @@ import { syncScheduledNotifications } from './reminders';
 const APP_ID = 'planner-app';
 // 2 added accounts, budgets, goals and the net-worth history. Version 1
 // files still import — every table is optional on the way back in.
-const BACKUP_VERSION = 2;
+// 3 added recurring income, which took over from the pay-rhythm settings.
+const BACKUP_VERSION = 3;
 
 export type BackupEnvelope = {
   app: typeof APP_ID;
@@ -66,6 +70,7 @@ export type BackupEnvelope = {
     documents: DocRow[];
     expenses: ExpenseRow[];
     recurring_expenses: RecurringRow[];
+    recurring_income: RecurringIncomeRow[];
     income: IncomeRow[];
     people: PersonRow[];
     shared_expenses: SharedExpenseRow[];
@@ -97,6 +102,7 @@ async function buildEnvelope(): Promise<BackupEnvelope> {
     documents,
     expenses,
     recurring_expenses,
+    recurring_income,
     income,
     people,
     shared_expenses,
@@ -112,6 +118,7 @@ async function buildEnvelope(): Promise<BackupEnvelope> {
     listDocs(),
     listAllExpenses(),
     listRecurring(),
+    listRecurringIncome(),
     listAllIncome(),
     listPeople(),
     listSharedExpenses(),
@@ -132,6 +139,7 @@ async function buildEnvelope(): Promise<BackupEnvelope> {
       documents,
       expenses,
       recurring_expenses,
+      recurring_income,
       income,
       people,
       shared_expenses,
@@ -208,6 +216,7 @@ async function applyEnvelope(env: BackupEnvelope): Promise<ImportSummary> {
     documents = [],
     expenses = [],
     recurring_expenses = [],
+    recurring_income = [],
     income = [],
     people = [],
     shared_expenses = [],
@@ -224,6 +233,7 @@ async function applyEnvelope(env: BackupEnvelope): Promise<ImportSummary> {
   for (const d of documents) await upsertDoc(d);
   for (const ex of expenses) await upsertExpense(ex);
   for (const r of recurring_expenses) await upsertRecurring(r);
+  for (const r of recurring_income) await upsertRecurringIncome(r);
   for (const i of income) await upsertIncome(i);
   for (const p of people) await upsertPerson(p);
   // Splits are grouped back onto their expense, because `upsertSharedExpense`

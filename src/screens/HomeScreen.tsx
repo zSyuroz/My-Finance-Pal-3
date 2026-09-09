@@ -12,7 +12,9 @@ import Sparkline from '../components/Sparkline';
 import SpendRing from '../components/SpendRing';
 import TransactionRow from '../components/TransactionRow';
 import {
+  applyDueIncome,
   applyDueRecurring,
+  applyDueSavings,
   applyDueSharedRecurring,
   countTransactions,
   expensesBetween,
@@ -22,7 +24,9 @@ import {
   incomeBetween,
   lifetimeTotals,
   captureNetWorth,
+  migratePaydayToRule,
   getCycleDay,
+  getSavingsPerCycle,
   getSetting,
   KEYS,
   expensesSince,
@@ -50,14 +54,16 @@ import {
 } from '../db';
 import { shiftDays, shortDate, startOfMonthKey, todayKey } from '../dateUtils';
 import { notifyRecurringPosted } from '../notifications';
-import { cycleWindow, payCycle, paydayLabel } from '../payCycle';
+import { cycleRange, cycleWindow, payCycle, paydayLabel } from '../payCycle';
 import { budgetSummary, type BudgetSummary } from '../budget';
 import {
   DEFAULT_HOME_CARD_ORDER,
   parseHomeCardOrder,
   type HomeCardKey,
 } from '../homeCards';
+import { allocateSavings } from '../autoSave';
 import { billsAhead, safeToSpend } from '../cycleCash';
+import { cycleOutlook } from '../outlook';
 import { debtHeadline, debtProgress, debtSummary } from '../debt';
 import { goalStatus } from '../goals';
 import { balances, myNet } from '../sharing';
@@ -66,9 +72,9 @@ import { monthKey, netWorthTrend, trendLine, type Trend } from '../netWorthTrend
 import {
   categoryMeta,
   fmtMoney,
+  fmtMoneyRough,
   sumAmount,
   topCategory,
-  trendPct,
 } from '../spending';
 import {
   mergeTransactions,
@@ -104,8 +110,12 @@ export default function HomeScreen({ navigation }: Props) {
     { amount: null, day: null }
   );
   const [cycleExpenses, setCycleExpenses] = useState<ExpenseRow[]>([]);
-  const [cycleIncome, setCycleIncome] = useState<IncomeRow[]>([]);
-  const [yesterdaySpent, setYesterdaySpent] = useState(0);
+  // What had been spent by this same day of the previous cycle. Comparing
+  // today against yesterday looked like a trend and was noise: most days have
+  // nothing on one side or the other, so the tile spent its life saying it had
+  // nothing to compare. The same point one cycle back is the comparison that
+  // answers the question people actually have — am I spending more than usual.
+  const [priorCycles, setPriorCycles] = useState<ExpenseRow[][]>([]);
   const [recent, setRecent] = useState<TransactionItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [lifetime, setLifetime] = useState({ income: 0, expenses: 0 });
@@ -115,6 +125,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [cardOrder, setCardOrder] = useState<HomeCardKey[]>(DEFAULT_HOME_CARD_ORDER);
   const [goals, setGoals] = useState<GoalRow[]>([]);
   const [recurring, setRecurring] = useState<RecurringRow[]>([]);
+  const [savingsPerCycle, setSavingsPerCycle] = useState<number | null>(null);
   const [snapshots, setSnapshots] = useState<NetWorthSnapshot[]>([]);
   const [cycleDay, setCycleDay] = useState<number | null>(null);
   // Enough of the shared ledger to state a single balance. The Split tab owns
@@ -136,6 +147,8 @@ export default function HomeScreen({ navigation }: Props) {
   });
 
   const refresh = useCallback(async () => {
+    await migratePaydayToRule();
+    await applyDueIncome();
     const posted = await applyDueRecurring();
     if (posted.length > 0 && (await getNotificationsEnabled())) {
       for (const { rule, expense } of posted) {
@@ -150,12 +163,11 @@ export default function HomeScreen({ navigation }: Props) {
     const cycleDay = await getCycleDay();
     setCycleDay(cycleDay);
     const cycleStart = cycleDay != null ? cycleStartKey(cycleDay, today) : startOfMonthKey(today);
+    await applyDueSavings(cycleStart);
     const recentStart = shiftDays(today, -(RECENT_WINDOW_DAYS - 1));
-    const [inCycle, inCycleIncome, yList, recentExp, recentInc, latestExp, latestInc, total, totals] =
+    const [inCycle, recentExp, recentInc, latestExp, latestInc, total, totals] =
       await Promise.all([
         expensesBetween(cycleStart, today),
-        incomeBetween(cycleStart, today),
-        expensesBetween(shiftDays(today, -1), shiftDays(today, -1)),
         expensesBetween(recentStart, today),
         incomeBetween(recentStart, today),
         recentExpenses(RECENT_MIN_ITEMS),
@@ -188,6 +200,7 @@ export default function HomeScreen({ navigation }: Props) {
     setSnapshots(history);
     setWorthTrend(netWorthTrend(history));
     setRecurring(await listRecurring());
+    setSavingsPerCycle(await getSavingsPerCycle());
 
     // The shared ledger is caught up before it is read for the same reason the
     // personal one is: a balance that is a month stale is just wrong.
@@ -201,8 +214,16 @@ export default function HomeScreen({ navigation }: Props) {
     setCardOrder(parseHomeCardOrder(await getSetting(KEYS.homeCardOrder)));
     setGoals(await listGoals());
     setCycleExpenses(inCycle);
-    setCycleIncome(inCycleIncome);
-    setYesterdaySpent(sumAmount(yList));
+    // Three complete cycles back. Enough to be a habit, few enough to still
+    // describe how this person lives now.
+    setPriorCycles(
+      await Promise.all(
+        [1, 2, 3].map((back) => {
+          const r = cycleRange(cycleDay, today, back);
+          return expensesBetween(r.start, r.end);
+        })
+      )
+    );
 
     // Prefer the 14-day window, but never leave Recent looking empty when
     // there is data to show: below the floor, fall back to the latest
@@ -224,13 +245,11 @@ export default function HomeScreen({ navigation }: Props) {
   const today = todayKey();
   const spentToday = sumAmount(cycleExpenses.filter((e) => e.date === today));
   const spentCycle = sumAmount(cycleExpenses);
-  const earnedCycle = sumAmount(cycleIncome);
   // "Saved so far" is everything earned minus everything spent, over all time
   // — so an imported statement moves it. It only falls back to prompting for a
   // salary while there's genuinely nothing recorded to add up.
   const saved = totalCount > 0 ? lifetime.income - lifetime.expenses : null;
   const fraction = payday.amount != null && payday.amount > 0 ? spentCycle / payday.amount : null;
-  const trend = trendPct(spentToday, yesterdaySpent);
   const top = topCategory(cycleExpenses);
   const cycle = payday.day != null ? payCycle(payday.day) : null;
   const notShown = Math.max(0, totalCount - recent.length);
@@ -246,7 +265,34 @@ export default function HomeScreen({ navigation }: Props) {
   // an explicit reset day overrides it.
   const bounds = cycleBounds(cycleDay, today);
   const bills = billsAhead(recurring, cycleExpenses, bounds.start, bounds.end);
-  const safe = safeToSpend(payday.amount, spentCycle, bills.unpaidTotal, cycle?.daysUntil ?? 0);
+  // What the saving will actually take, not what was named: a goal never takes
+  // more than it still needs, so with every goal met nothing is withheld.
+  const savingPlanned = allocateSavings(savingsPerCycle ?? 0, goals).reduce(
+    (total, a) => total + a.add,
+    0
+  );
+  const safe = safeToSpend(
+    payday.amount,
+    spentCycle,
+    bills.unpaidTotal,
+    savingPlanned,
+    cycle?.daysUntil ?? 0
+  );
+
+  // Bills are held apart from day-to-day spending on both sides: they are
+  // known exactly, so projecting them would turn a fact into an estimate.
+  const isBill = (e: ExpenseRow) => e.recurringId != null;
+  const window = cycleWindow(cycleDay, today);
+  const outlook = cycleOutlook({
+    income: payday.amount,
+    discretionary: cycleExpenses.filter((e) => !isBill(e)),
+    postedBills: bills.paidTotal,
+    billsToCome: bills.unpaidTotal,
+    saving: savingPlanned,
+    elapsed: window.elapsed,
+    total: window.total,
+    priorCycles: priorCycles.map((rows) => rows.filter((e) => !isBill(e))),
+  });
   const debts = debtSummary(accounts);
   const payoff = debtProgress(snapshots, debts.totalOwed);
   const debtLine = debtHeadline(debts, fmtMoney);
@@ -264,7 +310,7 @@ export default function HomeScreen({ navigation }: Props) {
   // pushed onto Home's own stack rather than switching tabs, so Back comes
   // back here instead of stranding the user in Settings.
   const openSettings = (
-    screen: 'Profile' | 'PayRhythm' | 'Accounts' | 'Budgets' | 'Goals' | 'RecurringExpenses'
+    screen: 'Profile' | 'RecurringIncome' | 'Accounts' | 'Budgets' | 'Goals' | 'RecurringExpenses'
   ) => navigation.navigate(screen);
 
   // The split ledger lives in its own tab, so this is the one card that has to
@@ -368,7 +414,7 @@ export default function HomeScreen({ navigation }: Props) {
         key="safe"
         style={styles.ringPage}
         onLongPress={openCardOrder}
-        onPress={() => openSettings('PayRhythm')}
+        onPress={() => openSettings('RecurringIncome')}
       >
         {/* The number people actually open the app for. Bills that have not
             posted yet are already subtracted, so this is what is free to
@@ -381,15 +427,19 @@ export default function HomeScreen({ navigation }: Props) {
         />
         <AppText variant="mono" color={colors.onInkMuted} style={styles.ringSub}>
           {safe.amount == null
-            ? 'Add your pay to see what is left'
+            ? 'Add your income to see what is left'
             : `${fmtMoney(Math.max(0, safe.perDay ?? 0))} a day for ${safe.daysLeft} day${
                 safe.daysLeft === 1 ? '' : 's'
               }`}
         </AppText>
         <AppText variant="mono" muted style={styles.paydayLine}>
           {safe.amount == null
-            ? 'Tap to set your pay rhythm'
-            : `${fmtMoney(safe.spent)} spent · ${fmtMoney(safe.committed)} in bills to come`}
+            ? 'Tap to add your income'
+            : [
+                `${fmtMoney(safe.spent)} spent`,
+                `${fmtMoney(safe.committed)} in bills`,
+                ...(safe.saving > 0 ? [`${fmtMoney(safe.saving)} saving`] : []),
+              ].join(' · ')}
         </AppText>
       </Pressable>
     ),
@@ -528,25 +578,6 @@ export default function HomeScreen({ navigation }: Props) {
               </Pager>
             </View>
 
-            {earnedCycle > 0 && (
-              <View style={styles.statRow}>
-                <Pressable
-                  style={styles.statTile}
-                  onPress={() => navigation.navigate('History')}
-                >
-                  <View style={styles.tileHead}>
-                    <AppText variant="label" muted>
-                      Income this cycle
-                    </AppText>
-                    {arrow}
-                  </View>
-                  <AppText variant="monoBold" color={colors.sage} style={styles.statValue}>
-                    {fmtMoney(earnedCycle)}
-                  </AppText>
-                </Pressable>
-              </View>
-            )}
-
             <View style={styles.sectionRow}>
               <AppText variant="label" muted>
                 Insights
@@ -588,36 +619,49 @@ export default function HomeScreen({ navigation }: Props) {
                   )}
                 </Pressable>
 
+                {/* The breakdown, not History: this tile forecasts the cycle, and a
+                    flat list of transactions cannot explain a forecast. The
+                    breakdown gives each category its own run rate, its change
+                    against last cycle, and what it is on track to reach. */}
                 <Pressable
                   style={styles.insightTile}
-                  onPress={() => navigation.navigate('History')}
+                  onPress={() => navigation.navigate('CategoryBreakdown')}
                 >
                   <View style={styles.tileHead}>
                     <View style={styles.tileTitle}>
-                      <RowIcon name="trend" color={colors.textMuted} size={16} />
-                      <AppText variant="title">Trend</AppText>
+                      <RowIcon name="wallet" color={colors.textMuted} size={16} />
+                      <AppText variant="title">Left over</AppText>
                     </View>
                     {arrow}
                   </View>
-                  {trend == null ? (
+                  {outlook.verdict === 'no-income' || outlook.verdict === 'too-early' ? (
                     <AppText variant="body" muted style={styles.trendBody}>
-                      Not enough data yet
-                    </AppText>
-                  ) : yesterdaySpent === 0 ? (
-                    <AppText variant="body" muted style={styles.trendBody}>
-                      Nothing logged yesterday to compare
+                      {outlook.verdict === 'no-income'
+                        ? 'Add your income to see this'
+                        : 'Too early in the cycle to call'}
                     </AppText>
                   ) : (
                     <>
                       <AppText
                         variant="monoBold"
-                        color={trend > 0 ? colors.danger : colors.sage}
+                        numberOfLines={1}
+                        color={outlook.verdict === 'over' ? colors.danger : colors.sage}
                         style={styles.statValue}
                       >
-                        {trend > 0 ? '▲' : trend < 0 ? '▼' : '–'} {Math.abs(trend)}%
+                        {fmtMoneyRough(Math.abs(outlook.leftAtPayday))}
                       </AppText>
-                      <AppText variant="body" muted style={styles.trendBody}>
-                        {trend > 0 ? 'Spending more' : trend < 0 ? 'Spending less' : 'Same'} than yesterday
+                      <AppText variant="body" muted numberOfLines={3} style={styles.trendBody}>
+                        {outlook.verdict === 'over' ? 'short' : 'left'} if you keep this pace
+                        {/* Two different claims, so two different words: with a
+                            history behind it the category is above what you
+                            usually spend, and without one it is merely the
+                            largest. Saying the stronger thing either way would
+                            be a claim the app has not earned. */}
+                        {outlook.driver
+                          ? ` · ${categoryMeta(outlook.driver.category).label.toLowerCase()} ${
+                              outlook.driverIsUnusual ? 'above usual' : 'is most of it'
+                            }`
+                          : ''}
                       </AppText>
                     </>
                   )}
@@ -656,7 +700,7 @@ export default function HomeScreen({ navigation }: Props) {
                   <View style={styles.tileHead}>
                     <View style={styles.tileTitle}>
                       <RowIcon name="coin" color={colors.textMuted} size={16} />
-                      <AppText variant="title">Top spendings</AppText>
+                      <AppText variant="title">Top spend</AppText>
                     </View>
                     {arrow}
                   </View>
@@ -795,21 +839,11 @@ function makeStyles(c: Theme) {
     ringPage: { alignItems: 'center', paddingHorizontal: 20 },
     ringSub: { marginTop: 14 },
     paydayLine: { marginTop: 6 },
-    statRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
     insightGrid: { gap: 12, marginBottom: 8 },
     // 'stretch' is what does the aligning: both cards in a row take the
     // height of the taller one instead of each shrinking to its own text.
     insightRow: { flexDirection: 'row', alignItems: 'stretch', gap: 12 },
     tileTitle: { flexDirection: 'row', alignItems: 'center', gap: 7, flex: 1, marginTop: 1 },
-    statTile: {
-      flex: 1,
-      backgroundColor: c.mist,
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: c.line,
-      padding: 14,
-      ...shadow.card,
-    },
     // Top-aligned so a two-line title ("Top spendings" in a narrow column)
     // pushes down rather than dragging the arrow with it.
     tileHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 },
