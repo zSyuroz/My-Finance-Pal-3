@@ -237,14 +237,19 @@ export default function CalendarScreen({ navigation }: Props) {
             {selectedIsPayday ? (
             <View style={styles.paydayCard}>
               <View style={styles.coin}>
-                <AppText variant="monoBold" color={colors.onAction}>
+                <AppText variant="monoBold" color={colors.onGold}>
                   $
                 </AppText>
               </View>
               <View style={{ flex: 1 }}>
-                <AppText variant="title">Payday</AppText>
+                {/* On a coloured surface the page's text tokens are a lottery:
+                    the muted grey vanished against it entirely. Anything drawn
+                    here takes the onGold pair, the same rule ink already has. */}
+                <AppText variant="title" color={colors.onGold}>
+                  Payday
+                </AppText>
                 {payday.amount != null && (
-                  <AppText variant="mono" muted>
+                  <AppText variant="mono" color={colors.onGoldMuted}>
                     ${payday.amount.toLocaleString()} expected
                   </AppText>
                 )}
@@ -363,7 +368,7 @@ function makeStyles(c: Theme) {
       height: 38,
       borderRadius: 19,
       borderWidth: 2,
-      borderColor: 'rgba(42,27,2,0.35)',
+      borderColor: c.onGoldMuted,
       alignItems: 'center',
       justifyContent: 'center',
     },

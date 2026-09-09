@@ -7,7 +7,7 @@ import Svg, {
 } from 'react-native-svg';
 
 import { useTheme } from '../ThemeContext';
-import { GOLD } from '../theme';
+import { ACCENT } from '../theme';
 
 /**
  * The onboarding mark: a thin orbit with a single gold coin on the ring.
@@ -34,15 +34,15 @@ export default function OrbitHero({ size = 240 }: { size?: number }) {
       {/* the runway arc — from "now" round to the coin */}
       <Path
         d={`M ${cx - ringR} ${cy} A ${ringR} ${ringR} 0 0 1 ${coinX} ${coinY}`}
-        stroke={GOLD}
+        stroke={ACCENT}
         strokeWidth={3}
         strokeLinecap="round"
         fill="none"
       />
 
       {/* the coin */}
-      <Circle cx={coinX} cy={coinY} r={11} fill={GOLD} />
-      <Circle cx={coinX} cy={coinY} r={11} stroke="#FFF7EA" strokeWidth={2} fill="none" />
+      <Circle cx={coinX} cy={coinY} r={11} fill={ACCENT} />
+      <Circle cx={coinX} cy={coinY} r={11} stroke="#EAF1FB" strokeWidth={2} fill="none" />
 
       {/* "now" marker */}
       <Circle cx={cx - ringR} cy={cy} r={4} fill={colors.iris} />
@@ -51,9 +51,9 @@ export default function OrbitHero({ size = 240 }: { size?: number }) {
       <G opacity={0.55}>
         <Line x1={44} y1={40} x2={44} y2={56} stroke={colors.iris} strokeWidth={2} strokeLinecap="round" />
         <Line x1={36} y1={48} x2={52} y2={48} stroke={colors.iris} strokeWidth={2} strokeLinecap="round" />
-        <Circle cx={220} cy={60} r={6} stroke={GOLD} strokeWidth={2} fill="none" />
+        <Circle cx={220} cy={60} r={6} stroke={ACCENT} strokeWidth={2} fill="none" />
         <Polygon points="214,168 226,168 220,156" fill={colors.sage} />
-        <Circle cx={40} cy={182} r={3} fill={GOLD} />
+        <Circle cx={40} cy={182} r={3} fill={ACCENT} />
         <Circle cx={198} cy={30} r={2.5} fill={colors.textMuted} />
       </G>
     </Svg>

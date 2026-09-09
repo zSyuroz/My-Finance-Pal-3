@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../ThemeContext';
-import { GOLD, type Theme } from '../theme';
+import { type Theme } from '../theme';
 
 type Props = {
   fraction: number; // 0..1 progress through the pay cycle
@@ -45,15 +45,15 @@ function makeStyles(c: Theme) {
       left: 0,
       top: 0,
       bottom: 0,
-      backgroundColor: GOLD,
+      backgroundColor: c.gold,
     },
     knob: {
       position: 'absolute',
       marginLeft: -8,
       borderRadius: 999,
-      backgroundColor: GOLD,
+      backgroundColor: c.gold,
       borderWidth: 2,
-      borderColor: '#FFF7EA',
+      borderColor: '#EAF1FB',
     },
   });
 }

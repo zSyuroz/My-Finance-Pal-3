@@ -14,6 +14,7 @@ export type Theme = {
   iris: string; // selection / focus / links
   gold: string; // the money thread: payday, runway, what you owe
   onGold: string; // text on gold
+  onGoldMuted: string; // secondary text on gold
   action: string; // buttons and the add control — the "do this" colour
   onAction: string; // text on action
   sage: string; // today / positive
@@ -23,70 +24,91 @@ export type Theme = {
   line: string;
 };
 
-// Palette ported from a reference dark-fintech design system ("Remainder" —
-// a near-black ground with a single accent ramp: emerald → lime → amber,
-// plus one coral alert, and nothing else in color). That system has no light
-// mode of its own — every light-theme value below is this app's own
-// extension of the same four accent roles (iris→lime, gold→amber,
-// sage→emerald, danger→warn), darkened only where a color doubles as small
-// text and needs to hold contrast on white. `ink` is the one "signature"
-// surface — Home's ring card, the Calendar grid, the Shared summary. It used
-// to stay near-black in both themes to preserve the reference's identity, but
-// a black slab on a light page reads as a rendering fault rather than a
-// choice, so it now follows the theme like every other surface. Anything
-// drawn on it must use the onInk* tokens rather than a literal light rgba,
-// or it inverts to invisible the moment the theme flips.
+/*
+ * A violet dark system: a near-black ground with a purple cast, panels lifted
+ * a step or two out of it, and a violet-to-magenta accent pair carrying the
+ * whole interface.
+ *
+ * Three things carry the look, and all three live in this file — no screen
+ * names a colour of its own, which is why the palette can be swapped without
+ * touching a single figure the app calculates:
+ *
+ *   Two surface tints, not one. `mist` is the panel and `ink` is a distinctly
+ *   more violet, lighter slab for the hero surfaces. A dark screen with one
+ *   surface colour reads as a flat sheet; the hero has to look like a
+ *   different material rather than a lighter grey.
+ *
+ *   Hairlines over shadows. `line` at low contrast is what separates panels;
+ *   the shadow below is a faint bloom, not the depth cue.
+ *
+ *   Two accents and two signals. Violet is "live" — actions, selection, the
+ *   rings. Magenta is the money thread and nothing else, so payday never blurs
+ *   into a button. Mint means positive and rose means trouble: those two are
+ *   the one place a hue outside the family earns its keep, because a person
+ *   has to tell gain from loss at a glance and violet-against-magenta cannot
+ *   carry that.
+ */
 export const lightTheme: Theme = {
-  // Same two-tint idea carried into daylight: the page is a warm off-white,
-  // cards are pure white, and `ink` takes a faint green cast so the hero
-  // card is still its own material rather than another white rectangle.
-  haze: '#EFF2EC',
+  // The same two-tint idea in daylight: a cool off-white page, white cards, and
+  // an `ink` that keeps a faint violet cast so the hero surface is still its
+  // own material rather than another white rectangle.
+  haze: '#F3F0F8',
   mist: '#FFFFFF',
-  ink: '#E9EFE7',
-  onInk: '#14161A',
-  onInkMuted: 'rgba(20,22,26,0.62)',
-  onInkTrack: 'rgba(20,22,26,0.13)',
-  onInkFaint: 'rgba(20,22,26,0.34)',
-  text: '#14161A',
-  textMuted: '#6B7069',
-  iris: '#4F6B0F',
-  gold: '#F2D94E',
-  onGold: '#2A1B02',
-  action: '#A8E82C',
-  onAction: '#0B2E22',
-  sage: '#14D98A',
-  onSage: '#0B2E22',
-  danger: '#C1512A',
-  line: '#DDE3DA',
+  ink: '#EBE5F5',
+  onInk: '#160F22',
+  onInkMuted: 'rgba(22,15,34,0.62)',
+  onInkTrack: 'rgba(22,15,34,0.13)',
+  onInkFaint: 'rgba(22,15,34,0.34)',
+  text: '#160F22',
+  textMuted: '#665C79',
+  // Darkened wherever a colour doubles as small text and has to hold contrast
+  // on white — the dark theme's violet and magenta are unreadable at body size.
+  iris: '#7E22CE',
+  gold: '#A21CAF',
+  onGold: '#FFFFFF',
+  onGoldMuted: 'rgba(255,255,255,0.78)',
+  action: '#7E22CE',
+  onAction: '#FFFFFF',
+  sage: '#047857',
+  onSage: '#FFFFFF',
+  danger: '#BE123C',
+  line: '#DED6EC',
 };
 
 export const darkTheme: Theme = {
-  // The ground is a green-black rather than a neutral one, and `ink` is a
-  // distinctly *greener* slab than the cards beside it. Two surface tints
-  // instead of one is what stops a dark screen reading as a flat sheet:
-  // the hero card has to look like a different material, not a lighter grey.
-  haze: '#070A08',
-  mist: '#121614',
-  ink: '#16211C',
-  onInk: '#F3F6F4',
-  onInkMuted: 'rgba(243,246,244,0.65)',
-  onInkTrack: 'rgba(243,246,244,0.16)',
-  onInkFaint: 'rgba(243,246,244,0.38)',
-  text: '#F3F6F4',
-  textMuted: '#7E8885',
-  iris: '#A8E82C',
-  gold: '#F2D94E',
-  onGold: '#2A1B02',
-  action: '#A8E82C',
-  onAction: '#0B2E22',
-  sage: '#14D98A',
-  onSage: '#0B2E22',
-  danger: '#FF8D5A',
-  line: '#1F2A25',
+  haze: '#0A0711', // near-black, with just enough violet to not read as grey
+  mist: '#16121F', // panel, one step out of the ground
+  ink: '#1C1729', // hero slab — more violet and lighter again
+  onInk: '#F2EEFA',
+  onInkMuted: 'rgba(242,238,250,0.66)',
+  onInkTrack: 'rgba(242,238,250,0.14)',
+  onInkFaint: 'rgba(242,238,250,0.36)',
+  text: '#F2EEFA',
+  textMuted: '#9A93AD',
+  iris: '#C084FC',
+  // Fuchsia rather than a rose pink: the money thread sits next to the danger
+  // colour constantly — payday above a bill, a credit beside a debit — and a
+  // rose money thread put them ~18° apart in hue, so arriving and leaving read
+  // as the same event. Pushed round to ~292° they cannot be confused.
+  gold: '#D946EF',
+  onGold: '#2A0733',
+  onGoldMuted: 'rgba(42,7,51,0.72)',
+  action: '#A855F7',
+  onAction: '#FFFFFF',
+  sage: '#3DDC97',
+  onSage: '#07231A',
+  danger: '#FB5E7E',
+  line: '#2A2338',
 };
 
-// Payday / money colors are intentionally theme-stable (a coin is a coin).
-export const GOLD = '#F2D94E';
+/**
+ * The accent the rings and the orbit illustration draw with, since those are
+ * SVG strokes rather than themed styles.
+ *
+ * Theme-stable on purpose: they are the app's signature marks and should read
+ * the same in either mode, the way a brand colour does.
+ */
+export const ACCENT = '#A855F7';
 
 export const font = {
   // The reference's type ramp leans on a single grotesque (Archivo) worked
@@ -110,42 +132,42 @@ export const font = {
   monoBold: 'SpaceMono_700Bold',
 } as const;
 
-export const radius = { sm: 10, md: 14, lg: 22, xl: 28, pill: 999 } as const;
+// Softer corners than the old system: glass panels read as panes of material,
+// and a tight radius makes them look like buttons instead.
+export const radius = { sm: 12, md: 16, lg: 24, xl: 30, pill: 999 } as const;
 
 export const space = (n: number) => n * 4;
 
-// The reference relies mostly on a 1px hairline border for panel separation
-// on a near-black ground, treating shadow as a faint accent rather than the
-// primary depth cue — RN's single-shadow style props approximate that with
-// a soft, dark, downward-only shadow instead of the reference's layered
-// inset+drop box-shadow, which RN has no way to express directly.
+// Glass wants a bloom, not a drop shadow: a wide, low-opacity spread tinted
+// toward the ground's own blue, so a panel looks lit from behind rather than
+// stuck on top of the page. The hairline border does the actual separating.
 export const shadow = {
   card: {
-    shadowColor: '#000000',
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
+    shadowColor: '#05020A',
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
     elevation: 3,
   },
   lift: {
-    shadowColor: '#000000',
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
+    shadowColor: '#05020A',
+    shadowOpacity: 0.6,
+    shadowRadius: 26,
+    shadowOffset: { width: 0, height: 12 },
     elevation: 6,
   },
 } as const;
 
-// Event palette — sampled along the same emerald → lime → amber ramp the
-// reference uses for every categorical color (its own `rampColor` helper
-// does the same linear interpolation), plus the one coral alert at the end
-// for a "this one matters" event color. No hue outside that family.
+// Event palette — one ramp through the family, mint → violet → magenta, with
+// the rose alert at the end for a "this one matters" event. No hue outside it,
+// for the same reason the accents have none: a categorical colour that is not
+// part of the system reads as an accident.
 export const EVENT_COLORS = [
-  '#14D98A', // emerald
-  '#4FDF64',
-  '#8AE53F',
-  '#B7E533',
-  '#D4DF40',
-  '#F2D94E', // amber
-  '#FF8D5A', // warn — reserved for standout events
+  '#3DDC97', // mint
+  '#5EEAD4',
+  '#818CF8',
+  '#A855F7', // violet
+  '#C084FC',
+  '#D946EF', // fuchsia
+  '#FB5E7E', // rose — reserved for standout events
 ];

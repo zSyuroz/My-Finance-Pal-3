@@ -2,7 +2,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { View } from 'react-native';
 
 import AppText from './AppText';
-import { GOLD } from '../theme';
+import { ACCENT } from '../theme';
 
 type Props = {
   fraction: number;
@@ -32,7 +32,7 @@ export default function CycleRing({
           cx={size / 2}
           cy={size / 2}
           r={r}
-          stroke={GOLD}
+          stroke={ACCENT}
           strokeWidth={sw}
           fill="none"
           strokeLinecap="round"

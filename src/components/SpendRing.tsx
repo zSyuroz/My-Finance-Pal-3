@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import AppText from './AppText';
 import { useTheme } from '../ThemeContext';
-import { GOLD } from '../theme';
+import { ACCENT } from '../theme';
 
 type Props = {
   fraction: number | null; // spent / salary this cycle, or null when no salary is set
@@ -37,7 +37,7 @@ export default function SpendRing({
             cx={size / 2}
             cy={size / 2}
             r={r}
-            stroke={over ? colors.danger : GOLD}
+            stroke={over ? colors.danger : ACCENT}
             strokeWidth={sw}
             fill="none"
             strokeLinecap="round"
